@@ -84,7 +84,14 @@ describe('mountApp', () => {
           code: 'unsupported_syntax' as const,
           message: 'This syntax is only partially supported.',
           severity: 'warning' as const,
-          range: null,
+          range: {
+            startOffset: 13,
+            endOffset: 20,
+            startLine: 2,
+            startColumn: 3,
+            endLine: 2,
+            endColumn: 10,
+          },
         }],
       };
     };
@@ -93,6 +100,7 @@ describe('mountApp', () => {
 
     expect(document.querySelector('[data-preview-status]')?.textContent).toBe('已更新');
     expect(document.querySelector('[data-diagnostics]')?.textContent).toContain('unsupported_syntax');
+    expect(document.querySelector('[data-diagnostics]')?.textContent).toContain('第 2 行');
     expect(document.querySelector('[data-preview] svg')).not.toBeNull();
   });
 

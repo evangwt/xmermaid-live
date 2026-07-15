@@ -198,6 +198,24 @@ test('keeps the last SVG but blocks stale export after a render error', async ({
   expectPrivateRequests();
 });
 
+test('reports an invalid flowchart without replacing the last successful SVG', async ({ page }) => {
+  const expectPrivateRequests = monitorPrivacy(page);
+
+  await page.goto('./');
+  const previewSvg = page.locator('[data-preview] svg');
+  await expect(previewSvg).toBeVisible();
+  const successfulMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
+  await page.getByRole('tab', { name: '当前图表' }).click();
+  await page.getByLabel('当前图表').fill('flowchart TD\n  Broken -->');
+
+  await expect(page.locator('[data-preview-status]')).toHaveText('预览未更新');
+  await expect(page.locator('[data-diagnostics]')).toContainText('parse_error');
+  expect(await previewSvg.evaluate(svg => svg.outerHTML)).toBe(successfulMarkup);
+  await expect(page.getByRole('button', { name: '下载 SVG' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '下载 PNG' })).toBeDisabled();
+  expectPrivateRequests();
+});
+
 test('switches to exactly one panel at a phone viewport', async ({ page }) => {
   const expectPrivateRequests = monitorPrivacy(page);
 

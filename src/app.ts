@@ -1,4 +1,5 @@
 import { encodeShareState, exportDiagram, type ExportRequest } from 'xmermaid/editor';
+import type { SourceRange } from 'xmermaid';
 import type { PreviewRenderer, PreviewSnapshot } from './preview-runtime';
 import { PreviewRuntime } from './preview-runtime';
 import { renderSource } from './render-source';
@@ -202,7 +203,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       diagnostics.append(diagnosticItem('render_error', snapshot.message));
     }
     for (const diagnostic of snapshot.diagnostics) {
-      diagnostics.append(diagnosticItem(diagnostic.code, diagnostic.message));
+      diagnostics.append(diagnosticItem(diagnostic.code, diagnostic.message, diagnostic.range));
     }
     if (snapshot.status === 'ready' && snapshot.diagnostics.length === 0) {
       diagnostics.append(diagnosticItem('ok', '没有诊断。'));
@@ -264,10 +265,15 @@ function emptyPreview(showGuide: boolean): HTMLElement {
   return empty;
 }
 
-function diagnosticItem(code: string, message: string): HTMLElement {
+function diagnosticItem(code: string, message: string, range: SourceRange | null = null): HTMLElement {
   const item = document.createElement('p');
   item.className = `diagnostic diagnostic-${code === 'ok' ? 'ok' : 'issue'}`;
-  item.textContent = `${code}: ${message}`;
+  const line = range
+    ? range.startLine === range.endLine
+      ? `（第 ${range.startLine} 行）`
+      : `（第 ${range.startLine}-${range.endLine} 行）`
+    : '';
+  item.textContent = `${code}: ${message}${line}`;
   return item;
 }
 
