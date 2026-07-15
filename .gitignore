@@ -1,0 +1,9 @@
+node_modules/
+dist/
+public/xmermaid_wasm_bg.wasm
+playwright-report/
+test-results/
+.playwright-cli/
+.omx/
+coverage/
+.DS_Store
