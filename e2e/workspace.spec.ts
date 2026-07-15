@@ -1,13 +1,19 @@
 import { expect, test, type Download, type Page } from '@playwright/test';
+import { readdirSync } from 'node:fs';
 
 const ORIGIN = 'http://127.0.0.1:4173';
-const ALLOWED_STATIC_PATHS = [
-  /^\/$/,
-  /^\/xmermaid-live\/$/,
-  /^\/(?:xmermaid-live\/)?assets\/index-[A-Za-z0-9_-]{8}\.(?:css|js)$/,
-  /^\/(?:xmermaid-live\/)?assets\/xmermaid_wasm_bg-[A-Za-z0-9_-]{8}\.wasm$/,
-  /^\/(?:xmermaid-live\/)?xmermaid_wasm_bg\.wasm$/,
-];
+const DEPLOYMENT_PREFIXES = ['/', '/xmermaid-live/'] as const;
+const DIST_ASSET_NAMES = readdirSync(new URL('../dist/assets/', import.meta.url), { withFileTypes: true })
+  .filter(entry => entry.isFile())
+  .map(entry => entry.name);
+const DIST_JS_ASSET = singleDistAsset('.js');
+const DIST_CSS_ASSET = singleDistAsset('.css');
+const ALLOWED_STATIC_PATHS = new Set(DEPLOYMENT_PREFIXES.flatMap(prefix => [
+  prefix,
+  `${prefix}xmermaid_wasm_bg.wasm`,
+  ...DIST_ASSET_NAMES.map(name => `${prefix}assets/${name}`),
+]));
+const LOCAL_BLOB_URL = /^blob:http:\/\/127\.0\.0\.1:4173\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 
 const PASTED_DOCUMENT = `# Pasted
 
@@ -39,10 +45,10 @@ function monitorPrivacy(page: Page): () => void {
     if (requestUrl === 'data:,') return;
 
     const url = new URL(requestUrl);
-    if (url.protocol === 'blob:' && url.origin === ORIGIN) return;
+    if (LOCAL_BLOB_URL.test(requestUrl)) return;
     if (url.origin !== ORIGIN) externalRequests.push(requestUrl);
     if (url.origin === ORIGIN && url.search) queryRequests.push(requestUrl);
-    if (url.origin === ORIGIN && !ALLOWED_STATIC_PATHS.some(pattern => pattern.test(url.pathname))) {
+    if (url.origin === ORIGIN && !ALLOWED_STATIC_PATHS.has(url.pathname)) {
       unexpectedRequests.push(requestUrl);
     }
   });
@@ -99,8 +105,8 @@ async function loadDeployment(page: Page, prefix: '/' | '/xmermaid-live/'): Prom
   }
 
   const documentUrl = onlyUrl(requests, url => url.pathname === prefix, 'document');
-  const js = onlyUrl(requests, url => new RegExp(`^${prefix}assets/index-[A-Za-z0-9_-]{8}\\.js$`).test(url.pathname), 'JavaScript');
-  const css = onlyUrl(requests, url => new RegExp(`^${prefix}assets/index-[A-Za-z0-9_-]{8}\\.css$`).test(url.pathname), 'CSS');
+  const js = onlyUrl(requests, url => url.pathname === `${prefix}assets/${DIST_JS_ASSET}`, 'JavaScript');
+  const css = onlyUrl(requests, url => url.pathname === `${prefix}assets/${DIST_CSS_ASSET}`, 'CSS');
   const wasm = onlyUrl(requests, url => url.pathname === wasmPath, 'WASM');
 
   for (const url of [documentUrl, js, css, wasm]) expect(url.search).toBe('');
@@ -113,8 +119,12 @@ function onlyUrl(urls: URL[], matches: (url: URL) => boolean, label: string): UR
   return matching[0]!;
 }
 
-function assetName(url: URL): string {
-  return url.pathname.slice(url.pathname.lastIndexOf('/') + 1);
+function singleDistAsset(extension: string): string {
+  const matching = DIST_ASSET_NAMES.filter(name => name.endsWith(extension));
+  if (matching.length !== 1) {
+    throw new Error(`Expected exactly one ${extension} file in dist/assets, found ${matching.length}.`);
+  }
+  return matching[0]!;
 }
 
 test('extracts, switches, edits, shares, and exports real WASM diagrams', async ({ page }) => {
@@ -204,16 +214,13 @@ test('boots the same production build at the domain root and subpath', async ({ 
   const expectPrivateRequests = monitorPrivacy(page);
 
   const rootAssets = await loadDeployment(page, '/');
-  expect(rootAssets.js.pathname).toMatch(/^\/assets\/index-[A-Za-z0-9_-]{8}\.js$/);
-  expect(rootAssets.css.pathname).toMatch(/^\/assets\/index-[A-Za-z0-9_-]{8}\.css$/);
+  expect(rootAssets.js.pathname).toBe(`/assets/${DIST_JS_ASSET}`);
+  expect(rootAssets.css.pathname).toBe(`/assets/${DIST_CSS_ASSET}`);
   expect(rootAssets.wasm.pathname).toBe('/xmermaid_wasm_bg.wasm');
 
   const subpathAssets = await loadDeployment(page, '/xmermaid-live/');
-  expect(subpathAssets.js.pathname).toMatch(/^\/xmermaid-live\/assets\/index-[A-Za-z0-9_-]{8}\.js$/);
-  expect(subpathAssets.css.pathname).toMatch(/^\/xmermaid-live\/assets\/index-[A-Za-z0-9_-]{8}\.css$/);
+  expect(subpathAssets.js.pathname).toBe(`/xmermaid-live/assets/${DIST_JS_ASSET}`);
+  expect(subpathAssets.css.pathname).toBe(`/xmermaid-live/assets/${DIST_CSS_ASSET}`);
   expect(subpathAssets.wasm.pathname).toBe('/xmermaid-live/xmermaid_wasm_bg.wasm');
-  expect(assetName(subpathAssets.js)).toBe(assetName(rootAssets.js));
-  expect(assetName(subpathAssets.css)).toBe(assetName(rootAssets.css));
-  expect(assetName(subpathAssets.wasm)).toBe(assetName(rootAssets.wasm));
   expectPrivateRequests();
 });
