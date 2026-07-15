@@ -2,8 +2,8 @@ export const SAMPLE_DOCUMENT = `# xmermaid live
 
 \`\`\`mermaid
 flowchart TD
-  Start[Paste a document] --> Extract[Extract diagrams]
-  Extract --> Preview[Preview selected diagram]
+  Start[Paste text] --> Extract[Find diagrams]
+  Extract --> Preview[Preview one]
 \`\`\`
 
 \`\`\`mermaid
