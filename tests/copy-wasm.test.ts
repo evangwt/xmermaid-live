@@ -2,14 +2,17 @@
 
 import { readFile, rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const copiedPath = new URL('../public/xmermaid_wasm_bg.wasm', import.meta.url);
 const packagePath = new URL('../node_modules/xmermaid/dist/xmermaid_wasm_bg.wasm', import.meta.url);
 
-afterEach(async () => {
+async function removeCopiedAsset() {
   await rm(copiedPath, { force: true });
-});
+}
+
+beforeEach(removeCopiedAsset);
+afterEach(removeCopiedAsset);
 
 describe('copy-xmermaid-wasm', () => {
   it('copies the exact installed WASM bytes into public assets', async () => {
