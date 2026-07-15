@@ -175,4 +175,14 @@ describe('mountApp', () => {
     expect(status.textContent).toBe('导出失败：<img src=x onerror=alert(1)>');
     expect(status.querySelector('img')).toBeNull();
   });
+
+  it('exposes keyboard-operable mobile panel controls', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    const previewButton = document.querySelector<HTMLButtonElement>('[data-mobile-target="preview"]')!;
+    previewButton.click();
+
+    expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.mobilePanel).toBe('preview');
+    expect(previewButton.getAttribute('aria-pressed')).toBe('true');
+    expect(document.querySelector<HTMLTextAreaElement>('[data-document-input]')?.getAttribute('aria-label')).toBe('完整文本');
+  });
 });

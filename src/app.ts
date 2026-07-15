@@ -119,6 +119,13 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     });
   }
 
+  for (const button of root.querySelectorAll<HTMLButtonElement>('[data-mobile-target]')) {
+    button.addEventListener('click', () => {
+      shell.dataset.mobilePanel = button.dataset.mobileTarget ?? 'edit';
+      renderMobileNavigation();
+    });
+  }
+
   function renderDocument(): void {
     syncValue(documentInput, state.text);
     const current = selectedDiagram(state);
@@ -155,6 +162,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
         activeEditor = 'diagram';
         shell.dataset.mobilePanel = 'edit';
         renderDocument();
+        renderMobileNavigation();
       });
       list.append(button);
     });
@@ -168,6 +176,12 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     }
     for (const surface of root.querySelectorAll<HTMLElement>('[data-editor-surface]')) {
       surface.hidden = surface.dataset.editorSurface !== activeEditor;
+    }
+  }
+
+  function renderMobileNavigation(): void {
+    for (const button of root.querySelectorAll<HTMLButtonElement>('[data-mobile-target]')) {
+      button.setAttribute('aria-pressed', String(button.dataset.mobileTarget === shell.dataset.mobilePanel));
     }
   }
 
@@ -223,6 +237,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   }
 
   renderDocument();
+  renderMobileNavigation();
 
   return {
     destroy() {
