@@ -1,3 +1,4 @@
+import { encodeShareState, exportDiagram, type ExportRequest } from 'xmermaid/editor';
 import type { PreviewRenderer, PreviewSnapshot } from './preview-runtime';
 import { PreviewRuntime } from './preview-runtime';
 import { renderSource } from './render-source';
@@ -14,6 +15,8 @@ export interface AppOptions {
   initialSelectedIndex?: number;
   renderer?: PreviewRenderer;
   renderDelayMs?: number;
+  exporter?: (request: ExportRequest) => Promise<Blob>;
+  saveBlob?: (blob: Blob, fileName: string) => void;
 }
 
 export interface MountedApp {
@@ -24,7 +27,12 @@ const SHELL = `
   <div class="app-shell" data-mobile-panel="edit">
     <header class="topbar">
       <div><strong>xmermaid</strong><span> live</span></div>
-      <div class="topbar-actions" data-toolbar></div>
+      <div class="topbar-actions" data-toolbar>
+        <span class="action-status" data-action-status aria-live="polite"></span>
+        <button type="button" data-share>生成分享链接</button>
+        <button type="button" data-export-svg disabled>下载 SVG</button>
+        <button type="button" data-export-png disabled>下载 PNG</button>
+      </div>
     </header>
     <nav class="mobile-nav" aria-label="工作区面板">
       <button type="button" data-mobile-target="list">图表</button>
@@ -68,6 +76,12 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   const preview = required<HTMLElement>(root, '[data-preview]');
   const previewStatus = required<HTMLElement>(root, '[data-preview-status]');
   const diagnostics = required<HTMLElement>(root, '[data-diagnostics]');
+  const actionStatus = required<HTMLElement>(root, '[data-action-status]');
+  const shareButton = required<HTMLButtonElement>(root, '[data-share]');
+  const exportSvgButton = required<HTMLButtonElement>(root, '[data-export-svg]');
+  const exportPngButton = required<HTMLButtonElement>(root, '[data-export-png]');
+  const exporter = options.exporter ?? exportDiagram;
+  const saveBlob = options.saveBlob ?? downloadBlob;
   let state = createWorkspaceDocument(options.initialText, options.initialSelectedIndex ?? 0);
   let activeEditor: 'document' | 'diagram' = 'document';
   let snapshot: PreviewSnapshot | null = null;
@@ -80,6 +94,14 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     },
     options.renderDelayMs,
   );
+
+  shareButton.addEventListener('click', () => {
+    const current = selectedDiagram(state);
+    window.location.hash = encodeShareState(state.text, current?.id ?? null);
+    actionStatus.textContent = '分享内容已写入地址栏。';
+  });
+  exportSvgButton.addEventListener('click', () => void exportCurrent('svg'));
+  exportPngButton.addEventListener('click', () => void exportCurrent('png'));
 
   documentInput.addEventListener('input', () => {
     state = setWorkspaceText(state, documentInput.value);
@@ -171,6 +193,33 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     if (snapshot.status === 'ready' && snapshot.diagnostics.length === 0) {
       diagnostics.append(diagnosticItem('ok', '没有诊断。'));
     }
+
+    const current = selectedDiagram(state);
+    const canExport = Boolean(
+      current && snapshot.exportable && snapshot.svg && snapshot.source === current.source,
+    );
+    exportSvgButton.disabled = !canExport;
+    exportPngButton.disabled = !canExport;
+  }
+
+  async function exportCurrent(format: 'svg' | 'png'): Promise<void> {
+    const current = selectedDiagram(state);
+    if (!current || !snapshot?.exportable || !snapshot.svg || snapshot.source !== current.source) return;
+
+    try {
+      const fileName = `${current.id}.${format}`;
+      const blob = await exporter({
+        diagramId: current.id,
+        source: current.source,
+        svg: snapshot.svg,
+        format,
+        fileName,
+      });
+      saveBlob(blob, fileName);
+      actionStatus.textContent = `${format.toUpperCase()} 已下载。`;
+    } catch (error) {
+      actionStatus.textContent = `导出失败：${error instanceof Error ? error.message : String(error)}`;
+    }
   }
 
   renderDocument();
@@ -205,4 +254,13 @@ function diagnosticItem(code: string, message: string): HTMLElement {
   item.className = `diagnostic diagnostic-${code === 'ok' ? 'ok' : 'issue'}`;
   item.textContent = `${code}: ${message}`;
   return item;
+}
+
+function downloadBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
