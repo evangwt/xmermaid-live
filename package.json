@@ -1,0 +1,25 @@
+{
+  "name": "xmermaid-live",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "copy:wasm": "node scripts/copy-xmermaid-wasm.mjs",
+    "dev": "npm run copy:wasm && vite",
+    "build": "npm run copy:wasm && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "xmermaid": "file:../xmermaid"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "@types/node": "26.1.1",
+    "jsdom": "29.1.1",
+    "typescript": "7.0.2",
+    "vite": "8.1.4",
+    "vitest": "4.1.10"
+  }
+}
