@@ -8,7 +8,10 @@
     "dev": "npm run copy:wasm && vite",
     "build": "npm run copy:wasm && tsc --noEmit && vite build",
     "preview": "vite preview",
+    "serve:test": "node scripts/serve-dist.mjs",
     "test": "vitest run",
+    "test:e2e": "npm run build && playwright test",
+    "verify": "npm run typecheck && npm test && npm run build && playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
