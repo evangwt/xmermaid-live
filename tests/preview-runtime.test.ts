@@ -181,12 +181,14 @@ describe('PreviewRuntime', () => {
   });
 
   it('dispose cancels a pending debounced render', async () => {
-    const runtime = new PreviewRuntime(async source => renderResult(source), () => undefined, 10);
+    const renderer = vi.fn(async (source: string) => renderResult(source));
+    const runtime = new PreviewRuntime(renderer, () => undefined, 10);
 
     runtime.request('pending');
     runtime.dispose();
     await vi.runAllTimersAsync();
 
+    expect(renderer).not.toHaveBeenCalled();
     expect(runtime.snapshot).toMatchObject({
       status: 'rendering',
       source: 'pending',
