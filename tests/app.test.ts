@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { decodeShareState, type ExportRequest } from 'xmermaid/editor';
 import { mountApp, type MountedApp } from '../src/app';
 
 const DOCUMENT = `\`\`\`mermaid
@@ -93,5 +94,85 @@ describe('mountApp', () => {
     expect(document.querySelector('[data-preview-status]')?.textContent).toBe('已更新');
     expect(document.querySelector('[data-diagnostics]')?.textContent).toContain('unsupported_syntax');
     expect(document.querySelector('[data-preview] svg')).not.toBeNull();
+  });
+
+  it('writes the complete document and selected id to the share hash', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    document.querySelectorAll<HTMLButtonElement>('[data-diagram-item]')[1].click();
+    document.querySelector<HTMLButtonElement>('[data-share]')?.click();
+
+    expect(decodeShareState(window.location.hash)).toEqual({
+      documentText: DOCUMENT,
+      selectedDiagramId: 'diagram-2',
+    });
+  });
+
+  it('exports SVG only while the current preview matches the current source', async () => {
+    vi.useFakeTimers();
+    const blob = new Blob(['svg'], { type: 'image/svg+xml' });
+    const exporter = vi.fn(async (_request: ExportRequest) => blob);
+    const saveBlob = vi.fn();
+    mounted = mountApp(root(), {
+      initialText: DOCUMENT,
+      renderer,
+      exporter,
+      saveBlob,
+      renderDelayMs: 10,
+    });
+
+    const svgButton = document.querySelector<HTMLButtonElement>('[data-export-svg]')!;
+    const pngButton = document.querySelector<HTMLButtonElement>('[data-export-png]')!;
+    expect(svgButton.disabled).toBe(true);
+    expect(pngButton.disabled).toBe(true);
+
+    await vi.runAllTimersAsync();
+
+    const currentSvg = document.querySelector<SVGSVGElement>('[data-preview] svg')!;
+    expect(svgButton.disabled).toBe(false);
+    expect(pngButton.disabled).toBe(false);
+    svgButton.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(exporter).toHaveBeenCalledWith({
+      diagramId: 'diagram-1',
+      source: 'flowchart TD\n  A --> B',
+      svg: currentSvg,
+      format: 'svg',
+      fileName: 'diagram-1.svg',
+    });
+    expect(saveBlob).toHaveBeenCalledWith(blob, 'diagram-1.svg');
+
+    const source = document.querySelector<HTMLTextAreaElement>('[data-diagram-input]')!;
+    source.value = 'flowchart TD\n  changed --> pending';
+    source.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(svgButton.disabled).toBe(true);
+    expect(pngButton.disabled).toBe(true);
+    svgButton.click();
+    expect(exporter).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows export failures as text without creating user-provided markup', async () => {
+    vi.useFakeTimers();
+    const exporter = vi.fn(async (_request: ExportRequest) => {
+      throw new Error('<img src=x onerror=alert(1)>');
+    });
+    mounted = mountApp(root(), {
+      initialText: DOCUMENT,
+      renderer,
+      exporter,
+      saveBlob: vi.fn(),
+      renderDelayMs: 10,
+    });
+    await vi.runAllTimersAsync();
+
+    document.querySelector<HTMLButtonElement>('[data-export-svg]')!.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const status = document.querySelector<HTMLElement>('[data-action-status]')!;
+    expect(status.textContent).toBe('导出失败：<img src=x onerror=alert(1)>');
+    expect(status.querySelector('img')).toBeNull();
   });
 });
