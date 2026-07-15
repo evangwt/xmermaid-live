@@ -48,11 +48,13 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid #a79df8; outli
 @media (max-width: 840px) {
   body { overflow: hidden; }
   .app-shell { height: 100dvh; grid-template-rows: auto auto minmax(0, 1fr); }
-  .topbar { min-height: 56px; padding: 10px 12px; gap: 10px; align-items: flex-start; }
-  .topbar-actions { justify-content: flex-end; flex-wrap: wrap; }
-  .action-status { flex-basis: 100%; text-align: right; }
+  .topbar { min-height: 56px; padding: 10px 12px; gap: 10px; flex-direction: column; align-items: stretch; }
+  .topbar-actions { width: 100%; min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .topbar-actions button { min-height: 44px; }
+  .action-status { grid-column: 1 / -1; text-align: left; }
+  .action-status:empty { display: none; }
   .mobile-nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px; background: #fff; border-bottom: 1px solid #dfe4ea; }
-  .mobile-nav button { min-height: 40px; border: 1px solid #dfe4ea; border-radius: 8px; background: #fff; touch-action: manipulation; cursor: pointer; }
+  .mobile-nav button { min-height: 44px; border: 1px solid #dfe4ea; border-radius: 8px; background: #fff; touch-action: manipulation; cursor: pointer; }
   .mobile-nav button[aria-pressed="true"] { color: #4c3fd1; border-color: #6c5ce7; background: #f2f0ff; }
   .workspace { display: block; min-height: 0; height: 100%; overflow: hidden; background: #fff; }
   [data-panel] { display: none; min-height: 0; height: 100%; }
