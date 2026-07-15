@@ -1,6 +1,9 @@
-import { XMermaidError, type RenderResult, type XMermaidDiagnostic } from 'xmermaid';
+import { XMermaidError, type XMermaidDiagnostic } from 'xmermaid';
 
-export type PreviewRenderResult = RenderResult;
+export interface PreviewRenderResult {
+  svg: SVGSVGElement;
+  diagnostics: XMermaidDiagnostic[];
+}
 
 export type PreviewRenderer = (source: string) => Promise<PreviewRenderResult>;
 
