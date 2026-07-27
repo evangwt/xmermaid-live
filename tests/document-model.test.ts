@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createWorkspaceDocument,
+  createWorkspaceDocumentForDiagram,
   replaceSelectedDiagramSource,
   selectWorkspaceDiagram,
   selectedDiagram,
@@ -77,5 +78,37 @@ describe('WorkspaceDocument', () => {
 
     expect(oneDiagram.selectedIndex).toBe(0);
     expect(empty.selectedIndex).toBeNull();
+  });
+
+  it('keeps the selected diagram anchored when earlier diagrams are inserted or removed', () => {
+    const selected = selectWorkspaceDiagram(createWorkspaceDocument(MULTI_DOCUMENT), 1);
+    const inserted = setWorkspaceText(selected, `\`\`\`mermaid\nflowchart TD\n  New --> First\n\`\`\`\n\n${MULTI_DOCUMENT}`);
+    const removed = setWorkspaceText(inserted, MULTI_DOCUMENT);
+
+    expect(selectedDiagram(inserted)?.source).toContain('Client --> API');
+    expect(inserted.selectedIndex).toBe(2);
+    expect(selectedDiagram(removed)?.source).toContain('Client --> API');
+    expect(removed.selectedIndex).toBe(1);
+  });
+
+  it('keeps the edited ordinal when another diagram has the old source', () => {
+    const duplicateSource = 'flowchart TD\n  Duplicate --> End';
+    const original = [
+      '```mermaid\nflowchart TD\n  First --> End\n```',
+      `\`\`\`mermaid\n${duplicateSource}\n\`\`\``,
+      `\`\`\`mermaid\n${duplicateSource}\n\`\`\``,
+    ].join('\n\n');
+    const edited = original.replace(duplicateSource, 'flowchart TD\n  Edited --> End');
+    const selected = selectWorkspaceDiagram(createWorkspaceDocument(original), 1);
+    const next = setWorkspaceText(selected, edited);
+
+    expect(next.selectedIndex).toBe(1);
+    expect(selectedDiagram(next)?.source).toContain('Edited --> End');
+  });
+
+  it('restores only an existing diagram id and otherwise selects the first diagram', () => {
+    expect(createWorkspaceDocumentForDiagram(MULTI_DOCUMENT, 'diagram-2').selectedIndex).toBe(1);
+    expect(createWorkspaceDocumentForDiagram(MULTI_DOCUMENT, 'diagram-999').selectedIndex).toBe(0);
+    expect(createWorkspaceDocumentForDiagram(MULTI_DOCUMENT, 'future-id').selectedIndex).toBe(0);
   });
 });

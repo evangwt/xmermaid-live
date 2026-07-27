@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DARK_THEME, type RenderTheme } from 'xmermaid';
 import { decodeShareState, type ExportRequest } from 'xmermaid/editor';
 import { mountApp, type MountedApp } from '../src/app';
+import type { PreviewRenderResult, PreviewRenderer } from '../src/preview-runtime';
+import '../src/styles.css';
 
 const DOCUMENT = `\`\`\`mermaid
 flowchart TD
@@ -13,6 +16,22 @@ flowchart LR
 \`\`\``;
 
 let mounted: MountedApp | null = null;
+
+beforeEach(() => {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: {
+      configurable: true,
+      value(this: HTMLDialogElement) { this.setAttribute('open', ''); },
+    },
+    close: {
+      configurable: true,
+      value(this: HTMLDialogElement) {
+        this.removeAttribute('open');
+        this.dispatchEvent(new Event('close'));
+      },
+    },
+  });
+});
 
 afterEach(() => {
   mounted?.destroy();
@@ -31,6 +50,18 @@ function renderer(source: string) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.dataset.source = source;
   return Promise.resolve({ svg, diagnostics: [] });
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(resolvePromise => { resolve = resolvePromise; });
+  return { promise, resolve };
+}
+
+function previewResult(label: string): PreviewRenderResult {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.dataset.source = label;
+  return { svg, diagnostics: [] };
 }
 
 describe('mountApp', () => {
@@ -64,6 +95,29 @@ describe('mountApp', () => {
 
     expect(document.querySelector<HTMLTextAreaElement>('[data-document-input]')?.value).toContain('Browser --> WASM');
     expect(document.querySelector<HTMLTextAreaElement>('[data-document-input]')?.value).toContain('A --> B');
+  });
+
+  it('keeps unchanged diagram list nodes while focused source text changes', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    const firstItem = document.querySelector<HTMLButtonElement>('[data-diagram-item]')!;
+    const input = document.querySelector<HTMLTextAreaElement>('[data-diagram-input]')!;
+    input.value = 'flowchart TD\n  Renamed --> B';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(document.querySelector('[data-diagram-item]')).toBe(firstItem);
+  });
+
+  it('does not reuse list nodes when user tokens collide with signature separators', () => {
+    const twoDiagrams = '```mermaid\nfoo\n```\n\n```mermaid\nbar\n```';
+    const oneDiagram = 'one\ntwo\nthree\nfour\n```mermaid\nfoo:2|bar\n```';
+    mounted = mountApp(root(), { initialText: twoDiagrams, renderer });
+    const input = document.querySelector<HTMLTextAreaElement>('[data-document-input]')!;
+    input.value = oneDiagram;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(document.querySelector('[data-diagram-count]')?.textContent).toBe('1');
+    expect(document.querySelectorAll('[data-diagram-item]')).toHaveLength(1);
+    expect(document.querySelector('[data-diagram-item]')?.textContent).toContain('foo:2|bar');
   });
 
   it('shows the empty extraction guidance without calling the renderer', () => {
@@ -100,8 +154,27 @@ describe('mountApp', () => {
 
     expect(document.querySelector('[data-preview-status]')?.textContent).toBe('已更新');
     expect(document.querySelector('[data-diagnostics]')?.textContent).toContain('unsupported_syntax');
-    expect(document.querySelector('[data-diagnostics]')?.textContent).toContain('第 2 行');
+    expect(document.querySelector('[data-diagnostics]')?.textContent).toContain('图内第 2 行');
     expect(document.querySelector('[data-preview] svg')).not.toBeNull();
+  });
+
+  it('does not duplicate a structured render failure with a generic diagnostic', async () => {
+    vi.useFakeTimers();
+    const failure = new (await import('xmermaid')).XMermaidError('PARSE_ERROR', 'bad source', undefined, [{
+      code: 'parse_error',
+      message: 'bad source',
+      severity: 'error',
+      range: null,
+    }]);
+    mounted = mountApp(root(), {
+      initialText: DOCUMENT,
+      renderer: async () => { throw failure; },
+      renderDelayMs: 10,
+    });
+    await vi.runAllTimersAsync();
+
+    expect(document.querySelectorAll('[data-diagnostics] .diagnostic')).toHaveLength(1);
+    expect(document.querySelector('[data-diagnostics]')?.textContent).toContain('parse_error');
   });
 
   it('writes the complete document and selected id to the share hash', () => {
@@ -113,6 +186,15 @@ describe('mountApp', () => {
       documentText: DOCUMENT,
       selectedDiagramId: 'diagram-2',
     });
+  });
+
+  it('refuses to claim success when the encoded share link is too large', () => {
+    const oversized = `flowchart TD\n  A[${'x'.repeat(60_000)}] --> B`;
+    mounted = mountApp(root(), { initialText: oversized, renderer });
+    document.querySelector<HTMLButtonElement>('[data-share]')?.click();
+
+    expect(window.location.hash).toBe('');
+    expect(document.querySelector('[data-action-status]')?.textContent).toContain('过长');
   });
 
   it('exports SVG only while the current preview matches the current source', async () => {
@@ -184,6 +266,45 @@ describe('mountApp', () => {
     expect(status.querySelector('img')).toBeNull();
   });
 
+  it('discards an export that finishes after the selected source changes', async () => {
+    vi.useFakeTimers();
+    let finishExport!: (blob: Blob) => void;
+    const exporter = vi.fn(() => new Promise<Blob>(resolve => { finishExport = resolve; }));
+    const saveBlob = vi.fn();
+    mounted = mountApp(root(), {
+      initialText: DOCUMENT,
+      renderer,
+      exporter,
+      saveBlob,
+      renderDelayMs: 10,
+    });
+    await vi.runAllTimersAsync();
+
+    document.querySelector<HTMLButtonElement>('[data-export-svg]')!.click();
+    const source = document.querySelector<HTMLTextAreaElement>('[data-diagram-input]')!;
+    source.value = 'flowchart TD\n  changed --> pending';
+    source.dispatchEvent(new Event('input', { bubbles: true }));
+    finishExport(new Blob(['stale'], { type: 'image/svg+xml' }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(saveBlob).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-action-status]')?.textContent).not.toContain('已下载');
+  });
+
+  it('switches editor tabs with the standard arrow-key interaction', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    const documentTab = document.querySelector<HTMLButtonElement>('[data-editor-tab="document"]')!;
+    const diagramTab = document.querySelector<HTMLButtonElement>('[data-editor-tab="diagram"]')!;
+    documentTab.focus();
+    documentTab.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+
+    expect(document.activeElement).toBe(diagramTab);
+    expect(diagramTab.getAttribute('aria-selected')).toBe('true');
+    expect(document.querySelector<HTMLElement>('[data-editor-surface="diagram"]')?.hidden).toBe(false);
+    expect(diagramTab.getAttribute('aria-controls')).toBe('diagram-editor-panel');
+  });
+
   it('exposes keyboard-operable mobile panel controls', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
     const previewButton = document.querySelector<HTMLButtonElement>('[data-mobile-target="preview"]')!;
@@ -192,5 +313,107 @@ describe('mountApp', () => {
     expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.mobilePanel).toBe('preview');
     expect(previewButton.getAttribute('aria-pressed')).toBe('true');
     expect(document.querySelector<HTMLTextAreaElement>('[data-document-input]')?.getAttribute('aria-label')).toBe('完整文本');
+  });
+
+  it('starts dark, switches paired themes, preserves overrides, and resets them', async () => {
+    vi.useFakeTimers();
+    const persist = vi.fn();
+    const renderedThemes: RenderTheme[] = [];
+    const themeRenderer: PreviewRenderer = async (source, theme) => {
+      renderedThemes.push(theme);
+      return previewResult(source);
+    };
+    mounted = mountApp(root(), {
+      initialText: DOCUMENT,
+      renderer: themeRenderer,
+      renderDelayMs: 0,
+      persistThemePreferences: persist,
+    });
+    const shell = document.querySelector<HTMLElement>('.app-shell')!;
+    expect(shell.dataset.workspaceTheme).toBe('dark');
+
+    document.querySelector<HTMLButtonElement>('[data-theme-option="light"]')!.click();
+    expect(shell.dataset.workspaceTheme).toBe('light');
+
+    document.querySelector<HTMLButtonElement>('[data-style-open]')!.click();
+    const arrowSize = document.querySelector<HTMLInputElement>('[data-style-number="arrowSize"]')!;
+    arrowSize.value = '18';
+    arrowSize.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector<HTMLButtonElement>('[data-theme-option="dark"]')!.click();
+    await vi.runAllTimersAsync();
+    expect(renderedThemes.at(-1)?.arrowSize).toBe(18);
+
+    document.querySelector<HTMLButtonElement>('[data-style-reset]')!.click();
+    await vi.runAllTimersAsync();
+    expect(renderedThemes.at(-1)?.arrowSize).toBe(DARK_THEME.arrowSize);
+    expect(persist).toHaveBeenCalled();
+  });
+
+  it('disables export until source and effective theme match the latest snapshot', async () => {
+    vi.useFakeTimers();
+    const first = deferred<PreviewRenderResult>();
+    const second = deferred<PreviewRenderResult>();
+    const themeRenderer = vi.fn()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    mounted = mountApp(root(), {
+      initialText: DOCUMENT,
+      renderer: themeRenderer,
+      renderDelayMs: 0,
+    });
+    const exportButton = document.querySelector<HTMLButtonElement>('[data-export-svg]')!;
+    await vi.advanceTimersByTimeAsync(0);
+    first.resolve(previewResult('dark'));
+    await Promise.resolve();
+    expect(exportButton.disabled).toBe(false);
+
+    document.querySelector<HTMLButtonElement>('[data-style-open]')!.click();
+    const arrowSize = document.querySelector<HTMLInputElement>('[data-style-number="arrowSize"]')!;
+    arrowSize.value = '18';
+    arrowSize.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(exportButton.disabled).toBe(true);
+    await vi.advanceTimersByTimeAsync(0);
+    second.resolve(previewResult('custom'));
+    await Promise.resolve();
+    expect(exportButton.disabled).toBe(false);
+  });
+
+  it('closes the style dialog with Escape semantics and returns focus to its opener', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    const opener = document.querySelector<HTMLButtonElement>('[data-style-open]')!;
+    const dialog = document.querySelector<HTMLDialogElement>('[data-style-dialog]')!;
+    opener.focus();
+    opener.click();
+    expect(dialog.open).toBe(true);
+
+    dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+    dialog.close();
+    expect(dialog.open).toBe(false);
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('provides accessible names for every style control', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    const dialog = document.querySelector<HTMLDialogElement>('[data-style-dialog]')!;
+    expect(dialog.getAttribute('aria-labelledby')).toBe('style-title');
+    expect(dialog.querySelector<HTMLButtonElement>('[data-style-close]')?.getAttribute('aria-label')).toBe('关闭图表样式');
+    expect(dialog.querySelectorAll<HTMLInputElement>('[data-style-color]')).toHaveLength(9);
+    expect(dialog.querySelectorAll<HTMLInputElement>('[data-style-number]')).toHaveLength(4);
+    expect(dialog.querySelectorAll<HTMLButtonElement>('[data-style-option]')).toHaveLength(3);
+
+    for (const control of dialog.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')) {
+      const label = control.labels?.[0] ?? control.closest('label');
+      expect(label?.textContent?.trim(), control.outerHTML).not.toBe('');
+    }
+  });
+
+  it('applies distinct semantic workbench themes without changing panel geometry', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    const shell = document.querySelector<HTMLElement>('.app-shell')!;
+    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#0b1117');
+
+    document.querySelector<HTMLButtonElement>('[data-theme-option="light"]')!.click();
+    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#f4f7f8');
+    expect(getComputedStyle(document.querySelector<HTMLElement>('.workspace')!).gridTemplateColumns).toContain('208px');
   });
 });

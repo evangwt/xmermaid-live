@@ -1,10 +1,11 @@
 import { XMermaid } from 'xmermaid';
-import type { PreviewRenderResult } from './preview-runtime';
+import type { PreviewRenderer } from './preview-runtime';
 
-const renderer = new XMermaid({ container: document.createElement('div') });
+export function createRenderSource(): PreviewRenderer {
+  const renderer = new XMermaid({ container: document.createElement('div') });
 
-export function renderSource(source: string): Promise<PreviewRenderResult> {
-  return renderer.renderToSVGElement(source, {
+  return (source, theme) => renderer.renderToSVGElement(source, {
+    theme,
     wasm: {
       wasmUrl: new URL('xmermaid_wasm_bg.wasm', window.location.href),
       fetch: window.fetch.bind(window),
