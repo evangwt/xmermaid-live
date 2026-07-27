@@ -13,15 +13,26 @@ export interface WorkspaceDocument {
 
 export function createWorkspaceDocument(text: string, preferredIndex = 0): WorkspaceDocument {
   const document = extractDiagrams(text);
-  return {
-    text,
-    document,
-    selectedIndex: normalizeSelection(document.diagrams.length, preferredIndex),
-  };
+  return workspaceDocument(text, document, normalizeSelection(document.diagrams.length, preferredIndex));
+}
+
+export function createWorkspaceDocumentForDiagram(
+  text: string,
+  preferredDiagramId: string | null,
+): WorkspaceDocument {
+  const document = extractDiagrams(text);
+  const selectedIndex = document.diagrams.findIndex(diagram => diagram.id === preferredDiagramId);
+  return workspaceDocument(text, document, selectedIndex >= 0 ? selectedIndex : normalizeSelection(document.diagrams.length, 0));
 }
 
 export function setWorkspaceText(state: WorkspaceDocument, text: string): WorkspaceDocument {
-  return createWorkspaceDocument(text, state.selectedIndex ?? 0);
+  const document = extractDiagrams(text);
+  const selectedIndex = preserveSelection(
+    state.document.diagrams,
+    document.diagrams,
+    state.selectedIndex,
+  );
+  return workspaceDocument(text, document, selectedIndex);
 }
 
 export function selectWorkspaceDiagram(state: WorkspaceDocument, index: number): WorkspaceDocument {
@@ -52,4 +63,52 @@ export function replaceSelectedDiagramSource(
 function normalizeSelection(diagramCount: number, preferredIndex: number): number | null {
   if (diagramCount === 0) return null;
   return Math.min(Math.max(0, preferredIndex), diagramCount - 1);
+}
+
+function preserveSelection(
+  previous: DiagramBlock[],
+  next: DiagramBlock[],
+  selectedIndex: number | null,
+): number | null {
+  if (next.length === 0) return null;
+  if (selectedIndex === null || !previous[selectedIndex]) return normalizeSelection(next.length, 0);
+
+  const overlap = Math.min(previous.length, next.length);
+  let prefixLength = 0;
+  while (
+    prefixLength < overlap
+    && previous[prefixLength]?.source === next[prefixLength]?.source
+  ) prefixLength += 1;
+
+  let suffixLength = 0;
+  while (
+    suffixLength < overlap - prefixLength
+    && previous[previous.length - suffixLength - 1]?.source === next[next.length - suffixLength - 1]?.source
+  ) suffixLength += 1;
+
+  if (selectedIndex < prefixLength) return selectedIndex;
+  if (selectedIndex >= previous.length - suffixLength) {
+    return next.length - (previous.length - selectedIndex);
+  }
+
+  const selectedSource = previous[selectedIndex].source;
+  const previousMatches = previous.filter(diagram => diagram.source === selectedSource);
+  const nextMatches = next
+    .map((diagram, index) => ({ diagram, index }))
+    .filter(candidate => candidate.diagram.source === selectedSource);
+  if (previousMatches.length === 1 && nextMatches.length === 1) return nextMatches[0]!.index;
+
+  const changedStart = prefixLength;
+  const changedLength = next.length - prefixLength - suffixLength;
+  if (changedLength === 0) return normalizeSelection(next.length, changedStart);
+  const relativeIndex = Math.max(0, selectedIndex - prefixLength);
+  return changedStart + Math.min(relativeIndex, changedLength - 1);
+}
+
+function workspaceDocument(
+  text: string,
+  document: DiagramDocument,
+  selectedIndex: number | null,
+): WorkspaceDocument {
+  return { text, document, selectedIndex };
 }

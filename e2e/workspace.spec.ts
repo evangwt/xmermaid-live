@@ -1,5 +1,6 @@
 import { expect, test, type Download, type Page } from '@playwright/test';
 import { readdirSync } from 'node:fs';
+import { encodeShareState } from 'xmermaid/editor';
 
 const ORIGIN = 'http://127.0.0.1:4173';
 const DEPLOYMENT_PREFIXES = ['/', '/xmermaid-live/'] as const;
@@ -29,6 +30,11 @@ flowchart LR
   Second[Second diagram] --> Shared[Preview]
 \`\`\`
 `;
+
+const MANY_DIAGRAMS = Array.from({ length: 40 }, (_, index) => `\`\`\`mermaid
+flowchart TD
+  Diagram${index + 1}[Diagram ${index + 1}] --> End${index + 1}[End]
+\`\`\``).join('\n\n');
 
 const TALL_CHAIN = `flowchart TD\n${Array.from(
   { length: 40 },
@@ -77,6 +83,65 @@ async function downloadBytes(download: Download): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   return Buffer.concat(chunks);
+}
+
+async function expectFilledArrowContinuity(page: Page): Promise<void> {
+  const result = await page.locator('[data-preview] svg').evaluate(async svg => {
+    const path = svg.querySelector<SVGPathElement>('.edge path');
+    const polygon = svg.querySelector<SVGPolygonElement>('.edge polygon');
+    if (!path || !polygon) throw new Error('Expected a filled-arrow edge.');
+    const pathEnd = path.getPointAtLength(path.getTotalLength());
+    const coordinates = polygon.getAttribute('points')?.match(/-?\d+(?:\.\d+)?/g)?.map(Number);
+    if (!coordinates || coordinates.length < 6) throw new Error('Expected triangle coordinates.');
+    const arrowBase = {
+      x: (coordinates[0]! + coordinates[4]!) / 2,
+      y: (coordinates[1]! + coordinates[5]!) / 2,
+    };
+    const geometricGap = Math.hypot(pathEnd.x - arrowBase.x, pathEnd.y - arrowBase.y);
+
+    const serialized = new XMLSerializer().serializeToString(svg);
+    const url = URL.createObjectURL(new Blob([serialized], { type: 'image/svg+xml' }));
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    const viewBox = (svg as SVGSVGElement).viewBox.baseVal;
+    const scale = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(viewBox.width * scale);
+    canvas.height = Math.ceil(viewBox.height * scale);
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Expected a 2D canvas context.');
+    context.scale(scale, scale);
+    context.drawImage(image, 0, 0, viewBox.width, viewBox.height);
+    URL.revokeObjectURL(url);
+
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+    const pixel = (x: number, y: number): number[] => {
+      const px = Math.max(0, Math.min(canvas.width - 1, Math.round(x * scale)));
+      const py = Math.max(0, Math.min(canvas.height - 1, Math.round(y * scale)));
+      const offset = (py * canvas.width + px) * 4;
+      return Array.from(pixels.data.slice(offset, offset + 4));
+    };
+    const background = pixel(1, 1);
+    const isBackground = (sample: number[]): boolean =>
+      sample.every((channel, index) => Math.abs(channel - background[index]!) <= 4);
+    const distance = Math.max(geometricGap, .5);
+    let backgroundOnlySamples = 0;
+    for (let travelled = 0; travelled <= distance; travelled += .5) {
+      const ratio = travelled / distance;
+      const x = pathEnd.x + (arrowBase.x - pathEnd.x) * ratio;
+      const y = pathEnd.y + (arrowBase.y - pathEnd.y) * ratio;
+      const neighborhood: number[][] = [];
+      for (const dx of [-.5, 0, .5]) {
+        for (const dy of [-.5, 0, .5]) neighborhood.push(pixel(x + dx, y + dy));
+      }
+      if (neighborhood.every(isBackground)) backgroundOnlySamples += 1;
+    }
+    return { geometricGap, backgroundOnlySamples };
+  });
+
+  expect(result.geometricGap).toBeLessThanOrEqual(.76);
+  expect(result.backgroundOnlySamples).toBe(0);
 }
 
 interface DeploymentAssets {
@@ -137,7 +202,7 @@ test('extracts, switches, edits, shares, and exports real WASM diagrams', async 
 
   await page.goto('./');
   await page.getByRole('tab', { name: '完整文本' }).click();
-  await page.getByLabel('完整文本').fill(PASTED_DOCUMENT);
+  await page.getByRole('textbox', { name: '完整文本' }).fill(PASTED_DOCUMENT);
 
   await expect(page.locator('[data-diagram-item]')).toHaveCount(2);
   const previewSvg = page.locator('[data-preview] svg');
@@ -145,28 +210,30 @@ test('extracts, switches, edits, shares, and exports real WASM diagrams', async 
   const firstMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
 
   await page.locator('[data-diagram-item]').nth(1).click();
-  await expect(page.getByLabel('当前图表')).toHaveValue(/Second diagram/);
+  await expect(page.getByRole('textbox', { name: '当前图表' })).toHaveValue(/Second diagram/);
   await expect(previewSvg).toContainText('Second diagram');
   const secondMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
   expect(secondMarkup).not.toBe(firstMarkup);
 
-  await page.getByLabel('当前图表').fill('flowchart LR\n  Browser[Browser] --> WASM[WASM]');
+  await page.getByRole('textbox', { name: '当前图表' }).fill('flowchart LR\n  Browser[Browser] --> WASM[WASM]');
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
   await page.getByRole('tab', { name: '完整文本' }).click();
-  await expect(page.getByLabel('完整文本')).toHaveValue(/Browser\[Browser\] --> WASM\[WASM\]/);
-  await expect(page.getByLabel('完整文本')).toHaveValue(/First\[First diagram\]/);
+  await expect(page.getByRole('textbox', { name: '完整文本' })).toHaveValue(/Browser\[Browser\] --> WASM\[WASM\]/);
+  await expect(page.getByRole('textbox', { name: '完整文本' })).toHaveValue(/First\[First diagram\]/);
 
-  await page.getByRole('button', { name: '生成分享链接' }).click();
+  await page.getByRole('button', { name: '分享' }).click();
   await expect(page).toHaveURL(/#xm=/);
   await page.reload();
-  await expect(page.getByLabel('当前图表')).toHaveValue(/Browser\[Browser\]/);
+  await page.getByRole('tab', { name: '当前图表' }).click();
+  await expect(page.getByRole('textbox', { name: '当前图表' })).toHaveValue(/Browser\[Browser\]/);
   await page.getByRole('tab', { name: '完整文本' }).click();
-  await expect(page.getByLabel('完整文本')).toHaveValue(PASTED_DOCUMENT.replace(
+  await expect(page.getByRole('textbox', { name: '完整文本' })).toHaveValue(PASTED_DOCUMENT.replace(
     'flowchart LR\n  Second[Second diagram] --> Shared[Preview]',
     'flowchart LR\n  Browser[Browser] --> WASM[WASM]',
   ));
 
   const svgButton = page.getByRole('button', { name: '下载 SVG' });
+  await page.getByText('导出', { exact: true }).click();
   await expect(svgButton).toBeEnabled();
   const svgDownloadPromise = page.waitForEvent('download');
   await svgButton.click();
@@ -181,6 +248,88 @@ test('extracts, switches, edits, shares, and exports real WASM diagrams', async 
   expect((await downloadBytes(pngDownload)).subarray(0, 8)).toEqual(
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
   );
+  expectPrivateRequests();
+});
+
+test('switches paired themes, preserves custom style, and restores it locally', async ({ page }) => {
+  await page.goto('./');
+  const shell = page.locator('.app-shell');
+  await expect(shell).toHaveAttribute('data-workspace-theme', 'dark');
+  await expect(page.locator('[data-preview] svg')).toHaveCSS('background-color', 'rgb(11, 17, 23)');
+
+  await page.getByRole('button', { name: '图表样式' }).click();
+  await page.getByRole('slider', { name: '箭头大小' }).fill('18');
+  await page.getByRole('button', { name: '关闭图表样式' }).click();
+  await page.getByRole('button', { name: '浅色' }).click();
+  await expect(shell).toHaveAttribute('data-workspace-theme', 'light');
+  await page.reload();
+
+  await expect(shell).toHaveAttribute('data-workspace-theme', 'light');
+  await page.getByRole('button', { name: /图表样式/ }).click();
+  await expect(page.getByRole('slider', { name: '箭头大小' })).toHaveValue('18');
+  await page.getByRole('button', { name: '重置图表样式' }).click();
+  await expect(page.getByRole('slider', { name: '箭头大小' })).toHaveValue('10');
+});
+
+test('opens and closes diagram styles by keyboard and restores focus', async ({ page }) => {
+  await page.goto('./');
+  const opener = page.getByRole('button', { name: '图表样式' });
+  await opener.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: '图表样式' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: '图表样式' })).toBeHidden();
+  await expect(opener).toBeFocused();
+});
+
+test('exports the currently rendered custom colors', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: '图表样式' }).click();
+  await page.getByLabel('箭头颜色').fill('#ff3366');
+  await page.getByRole('button', { name: '关闭图表样式' }).click();
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await page.getByText('导出', { exact: true }).click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: '下载 SVG' }).click();
+  const markup = (await downloadBytes(await downloadPromise)).toString('utf8');
+  expect(markup).toContain('#ff3366');
+});
+
+test('keeps filled arrows connected across themes and custom sizes', async ({ page }) => {
+  const expectPrivateRequests = monitorPrivacy(page);
+  await page.goto('./');
+  await page.getByRole('tab', { name: '当前图表' }).click();
+  await page.getByRole('textbox', { name: '当前图表' }).fill('flowchart LR\n  Start[Start] --> Finish[Finish]');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expectFilledArrowContinuity(page);
+
+  await page.getByRole('button', { name: '浅色' }).click();
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expectFilledArrowContinuity(page);
+
+  await page.getByRole('button', { name: '图表样式' }).click();
+  await page.getByRole('slider', { name: '箭头大小' }).fill('24');
+  await page.getByRole('button', { name: '关闭图表样式' }).click();
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expectFilledArrowContinuity(page);
+  expectPrivateRequests();
+});
+
+test('runs the core static editing workflow across browsers @cross-browser', async ({ page }) => {
+  const expectPrivateRequests = monitorPrivacy(page);
+
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill(PASTED_DOCUMENT);
+  await expect(page.locator('[data-diagram-item]')).toHaveCount(2);
+  await page.locator('[data-diagram-item]').nth(1).click();
+  await expect(page.locator('[data-preview] svg')).toContainText('Second diagram');
+  await page.getByRole('textbox', { name: '当前图表' }).fill(
+    'flowchart LR\n  Browser[Browser] --> Core[Core workflow]',
+  );
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expect(page.locator('[data-preview] svg')).toContainText('Core workflow');
+  await page.getByRole('tab', { name: '完整文本' }).click();
+  await expect(page.getByRole('textbox', { name: '完整文本' })).toHaveValue(/Core\[Core workflow\]/);
   expectPrivateRequests();
 });
 
@@ -211,7 +360,7 @@ test('keeps labels, geometry, and scaling visible in real SVG output', async ({ 
       tipY,
     };
   });
-  expect(circleGeometry.tipX).toBeCloseTo(circleGeometry.centerX - circleGeometry.radius, 6);
+  expect(circleGeometry.tipX).toBeCloseTo(circleGeometry.centerX - circleGeometry.radius - 2, 6);
   expect(circleGeometry.tipY).toBeCloseTo(circleGeometry.centerY, 6);
 
   const longLabel = 'A long label that must grow the upstream layout viewport instead of escaping past the SVG boundary';
@@ -305,13 +454,13 @@ test('keeps the last SVG but blocks stale export after a render error', async ({
   await expect(previewSvg).toBeVisible();
   const successfulMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
   await page.getByRole('tab', { name: '当前图表' }).click();
-  await page.getByLabel('当前图表').fill('sequenceDiagram\n  Alice->>Bob: Hello');
+  await page.getByRole('textbox', { name: '当前图表' }).fill('sequenceDiagram\n  Alice->>Bob: Hello');
 
   await expect(page.locator('[data-preview-status]')).toHaveText('预览未更新');
   await expect(previewSvg).toBeVisible();
   expect(await previewSvg.evaluate(svg => svg.outerHTML)).toBe(successfulMarkup);
-  await expect(page.getByRole('button', { name: '下载 SVG' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: '下载 PNG' })).toBeDisabled();
+  await expect(page.locator('[data-export-svg]')).toBeDisabled();
+  await expect(page.locator('[data-export-png]')).toBeDisabled();
   await expect(page.locator('[data-diagnostics]')).toContainText('unsupported_diagram_type');
   expectPrivateRequests();
 });
@@ -324,17 +473,17 @@ test('reports an invalid flowchart without replacing the last successful SVG', a
   await expect(previewSvg).toBeVisible();
   const successfulMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
   await page.getByRole('tab', { name: '当前图表' }).click();
-  await page.getByLabel('当前图表').fill('flowchart TD\n  Broken -->');
+  await page.getByRole('textbox', { name: '当前图表' }).fill('flowchart TD\n  Broken -->');
 
   await expect(page.locator('[data-preview-status]')).toHaveText('预览未更新');
   await expect(page.locator('[data-diagnostics]')).toContainText('parse_error');
   expect(await previewSvg.evaluate(svg => svg.outerHTML)).toBe(successfulMarkup);
-  await expect(page.getByRole('button', { name: '下载 SVG' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: '下载 PNG' })).toBeDisabled();
+  await expect(page.locator('[data-export-svg]')).toBeDisabled();
+  await expect(page.locator('[data-export-png]')).toBeDisabled();
   expectPrivateRequests();
 });
 
-test('switches to exactly one panel at a phone viewport', async ({ page }) => {
+test('switches to exactly one panel and preserves focus at a phone viewport', async ({ page }) => {
   const expectPrivateRequests = monitorPrivacy(page);
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -343,10 +492,100 @@ test('switches to exactly one panel at a phone viewport', async ({ page }) => {
   await expect(page.locator('[data-panel="preview"]')).toBeVisible();
   await expect(page.locator('[data-panel="edit"]')).toBeHidden();
   await expect(page.locator('[data-panel="list"]')).toBeHidden();
+  await page.getByRole('button', { name: '图表', exact: true }).click();
+  await page.locator('[data-diagram-item]').first().click();
+  await expect(page.locator('[data-panel="edit"]')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '当前图表' })).toBeFocused();
   expectPrivateRequests();
 });
 
-test('boots the same production build at the domain root and subpath', async ({ page }) => {
+test('uses a full-screen style dialog on mobile without changing the active panel', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('./');
+  const shell = page.locator('.app-shell');
+  await expect(shell).toHaveAttribute('data-mobile-panel', 'edit');
+  await page.getByRole('button', { name: '图表样式' }).click();
+
+  const box = await page.getByRole('dialog', { name: '图表样式' }).boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeCloseTo(0, 0);
+  expect(box!.y).toBeCloseTo(0, 0);
+  expect(box!.width).toBeCloseTo(390, 0);
+  expect(box!.height).toBeCloseTo(844, 0);
+
+  await page.getByRole('button', { name: '关闭图表样式' }).click();
+  await expect(shell).toHaveAttribute('data-mobile-panel', 'edit');
+});
+
+test('keeps every diagram reachable in a long desktop list', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill(MANY_DIAGRAMS);
+
+  const panel = page.locator('[data-panel="list"]');
+  await expect(page.locator('[data-diagram-item]')).toHaveCount(40);
+  expect(await panel.evaluate(element => ({
+    overflowY: getComputedStyle(element).overflowY,
+    overflows: element.scrollHeight > element.clientHeight,
+  }))).toEqual({ overflowY: 'auto', overflows: true });
+  const last = page.locator('[data-diagram-item]').last();
+  await last.scrollIntoViewIfNeeded();
+  await expect(last).toBeVisible();
+  await last.click();
+  await expect(page.getByRole('textbox', { name: '当前图表' })).toHaveValue(/Diagram 40/);
+});
+
+test('uses the single-panel layout before the desktop grid would clip', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 800 });
+  await page.goto('./');
+
+  await expect(page.locator('.mobile-nav')).toBeVisible();
+  await page.getByRole('button', { name: '预览', exact: true }).click();
+  await expect(page.locator('[data-panel="preview"]')).toBeVisible();
+  await expect(page.locator('[data-panel="edit"]')).toBeHidden();
+});
+
+test('switches editor tabs with the keyboard', async ({ page }) => {
+  await page.goto('./');
+  const documentTab = page.getByRole('tab', { name: '完整文本' });
+  const diagramTab = page.getByRole('tab', { name: '当前图表' });
+  await documentTab.focus();
+  await page.keyboard.press('ArrowRight');
+
+  await expect(diagramTab).toBeFocused();
+  await expect(diagramTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('textbox', { name: '当前图表' })).toBeVisible();
+});
+
+test('falls back to the first diagram when a shared selection id is stale', async ({ page }) => {
+  const hash = encodeShareState(PASTED_DOCUMENT, 'diagram-999');
+  await page.goto(`./${hash}`);
+
+  await page.getByRole('tab', { name: '当前图表' }).click();
+  await expect(page.getByRole('textbox', { name: '当前图表' })).toHaveValue(/First diagram/);
+});
+
+test('extracts a thousand-diagram document within the declared capacity', async ({ page }) => {
+  const expectPrivateRequests = monitorPrivacy(page);
+  const thousandDiagrams = Array.from({ length: 1_000 }, (_, index) => `\`\`\`mermaid
+flowchart TD
+  A${index} --> B${index}
+\`\`\``).join('\n\n');
+  await page.goto('./');
+
+  const elapsedMs = await page.getByRole('textbox', { name: '完整文本' }).evaluate((element, value) => {
+    const input = element as HTMLTextAreaElement;
+    const startedAt = performance.now();
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return performance.now() - startedAt;
+  }, thousandDiagrams);
+  await expect(page.locator('[data-diagram-item]')).toHaveCount(1_000);
+  expect(elapsedMs).toBeLessThan(1_500);
+  expectPrivateRequests();
+});
+
+test('boots the same production build at the domain root and subpath @cross-browser', async ({ page }) => {
   const expectPrivateRequests = monitorPrivacy(page);
 
   const rootAssets = await loadDeployment(page, '/');

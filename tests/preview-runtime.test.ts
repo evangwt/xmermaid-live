@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { XMermaidError, type RenderResult, type XMermaidDiagnostic } from 'xmermaid';
+import { DARK_THEME, LIGHT_THEME, XMermaidError, type RenderResult, type XMermaidDiagnostic } from 'xmermaid';
+import { themeSignature } from '../src/theme';
 import {
   PreviewRuntime,
   type PreviewRenderer,
@@ -46,7 +47,7 @@ describe('PreviewRuntime', () => {
     });
     const runtime = new PreviewRuntime(renderer, () => undefined, 10);
 
-    runtime.request('narrow result');
+    runtime.request('narrow result', DARK_THEME);
     await vi.runAllTimersAsync();
 
     expect(runtime.snapshot.status).toBe('ready');
@@ -60,8 +61,8 @@ describe('PreviewRuntime', () => {
       return renderResult(source);
     }, () => undefined, 40);
 
-    runtime.request('flowchart TD\nA-->B');
-    runtime.request('flowchart LR\nA-->C');
+    runtime.request('flowchart TD\nA-->B', DARK_THEME);
+    runtime.request('flowchart LR\nA-->C', DARK_THEME);
     await vi.runAllTimersAsync();
 
     expect(renderedSources).toEqual(['flowchart LR\nA-->C']);
@@ -81,9 +82,9 @@ describe('PreviewRuntime', () => {
       return second.promise;
     }, () => undefined, 10);
 
-    runtime.request('first');
+    runtime.request('first', DARK_THEME);
     await vi.advanceTimersByTimeAsync(10);
-    runtime.request('second');
+    runtime.request('second', DARK_THEME);
     await vi.advanceTimersByTimeAsync(10);
 
     second.resolve(renderResult('second'));
@@ -109,9 +110,9 @@ describe('PreviewRuntime', () => {
       return second.promise;
     }, () => undefined, 10);
 
-    runtime.request('first');
+    runtime.request('first', DARK_THEME);
     await vi.advanceTimersByTimeAsync(10);
-    runtime.request('second');
+    runtime.request('second', DARK_THEME);
     await vi.advanceTimersByTimeAsync(10);
 
     second.resolve(renderResult('second'));
@@ -139,11 +140,11 @@ describe('PreviewRuntime', () => {
       throw new XMermaidError('PARSE_ERROR', 'bad source', undefined, [parseDiagnostic]);
     }, () => undefined, 10);
 
-    runtime.request('valid');
+    runtime.request('valid', DARK_THEME);
     await vi.runAllTimersAsync();
     expect(runtime.snapshot.exportable).toBe(true);
 
-    runtime.request('invalid');
+    runtime.request('invalid', DARK_THEME);
     await vi.runAllTimersAsync();
 
     expect(runtime.snapshot).toMatchObject({
@@ -162,9 +163,9 @@ describe('PreviewRuntime', () => {
       return renderResult(source);
     }, () => undefined, 10);
 
-    runtime.request('valid');
+    runtime.request('valid', DARK_THEME);
     await vi.runAllTimersAsync();
-    runtime.request(null);
+    runtime.request(null, DARK_THEME);
 
     expect(runtime.snapshot).toEqual({
       status: 'idle',
@@ -173,9 +174,10 @@ describe('PreviewRuntime', () => {
       diagnostics: [],
       message: null,
       exportable: false,
+      themeSignature: themeSignature(DARK_THEME),
     });
 
-    runtime.request('invalid');
+    runtime.request('invalid', DARK_THEME);
     await vi.runAllTimersAsync();
     expect(runtime.snapshot.svg).toBeNull();
   });
@@ -184,7 +186,7 @@ describe('PreviewRuntime', () => {
     const renderer = vi.fn(async (source: string) => renderResult(source));
     const runtime = new PreviewRuntime(renderer, () => undefined, 10);
 
-    runtime.request('pending');
+    runtime.request('pending', DARK_THEME);
     runtime.dispose();
     await vi.runAllTimersAsync();
 
@@ -200,7 +202,7 @@ describe('PreviewRuntime', () => {
     const inFlight = deferred<PreviewRenderResult>();
     const runtime = new PreviewRuntime(() => inFlight.promise, () => undefined, 10);
 
-    runtime.request('in flight');
+    runtime.request('in flight', DARK_THEME);
     await vi.advanceTimersByTimeAsync(10);
     runtime.dispose();
     inFlight.resolve(renderResult('completed'));
@@ -212,5 +214,24 @@ describe('PreviewRuntime', () => {
       exportable: false,
     });
     expect(runtime.snapshot.svg).toBeNull();
+  });
+
+  it('ignores a slow result from the previous theme', async () => {
+    const dark = deferred<PreviewRenderResult>();
+    const light = deferred<PreviewRenderResult>();
+    const runtime = new PreviewRuntime((_source, theme) =>
+      theme.name === DARK_THEME.name ? dark.promise : light.promise, () => undefined, 10);
+
+    runtime.request('flowchart LR\nA-->B', DARK_THEME);
+    await vi.advanceTimersByTimeAsync(10);
+    runtime.request('flowchart LR\nA-->B', LIGHT_THEME);
+    await vi.advanceTimersByTimeAsync(10);
+    light.resolve(renderResult('light'));
+    await Promise.resolve();
+    dark.resolve(renderResult('dark'));
+    await Promise.resolve();
+
+    expect(runtime.snapshot.svg?.dataset.label).toBe('light');
+    expect(runtime.snapshot.themeSignature).toBe(themeSignature(LIGHT_THEME));
   });
 });

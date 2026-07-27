@@ -1,15 +1,17 @@
-import { XMermaidError, type XMermaidDiagnostic } from 'xmermaid';
+import { XMermaidError, type RenderTheme, type XMermaidDiagnostic } from 'xmermaid';
+import { themeSignature } from './theme';
 
 export interface PreviewRenderResult {
   svg: SVGSVGElement;
   diagnostics: XMermaidDiagnostic[];
 }
 
-export type PreviewRenderer = (source: string) => Promise<PreviewRenderResult>;
+export type PreviewRenderer = (source: string, theme: RenderTheme) => Promise<PreviewRenderResult>;
 
 export interface PreviewSnapshot {
   status: 'idle' | 'rendering' | 'ready' | 'error';
   source: string | null;
+  themeSignature: string | null;
   svg: SVGSVGElement | null;
   diagnostics: XMermaidDiagnostic[];
   message: string | null;
@@ -19,6 +21,7 @@ export interface PreviewSnapshot {
 const IDLE: PreviewSnapshot = {
   status: 'idle',
   source: null,
+  themeSignature: null,
   svg: null,
   diagnostics: [],
   message: null,
@@ -41,25 +44,27 @@ export class PreviewRuntime {
     return this.current;
   }
 
-  request(source: string | null): void {
+  request(source: string | null, theme: RenderTheme): void {
     const requestId = ++this.requestId;
+    const signature = themeSignature(theme);
     if (this.timer) clearTimeout(this.timer);
 
     if (!source) {
       this.lastSuccessfulSvg = null;
-      this.publish(IDLE);
+      this.publish({ ...IDLE, themeSignature: signature });
       return;
     }
 
     this.publish({
       status: 'rendering',
       source,
+      themeSignature: signature,
       svg: this.lastSuccessfulSvg,
       diagnostics: [],
       message: null,
       exportable: false,
     });
-    this.timer = setTimeout(() => void this.run(requestId, source), this.delayMs);
+    this.timer = setTimeout(() => void this.run(requestId, source, theme, signature), this.delayMs);
   }
 
   dispose(): void {
@@ -68,15 +73,16 @@ export class PreviewRuntime {
     this.timer = null;
   }
 
-  private async run(requestId: number, source: string): Promise<void> {
+  private async run(requestId: number, source: string, theme: RenderTheme, signature: string): Promise<void> {
     try {
-      const result = await this.renderer(source);
+      const result = await this.renderer(source, theme);
       if (requestId !== this.requestId) return;
 
       this.lastSuccessfulSvg = result.svg;
       this.publish({
         status: 'ready',
         source,
+        themeSignature: signature,
         svg: result.svg,
         diagnostics: result.diagnostics,
         message: null,
@@ -88,6 +94,7 @@ export class PreviewRuntime {
       this.publish({
         status: 'error',
         source,
+        themeSignature: signature,
         svg: this.lastSuccessfulSvg,
         diagnostics: normalizeDiagnostics(error),
         message: error instanceof Error ? error.message : String(error),
