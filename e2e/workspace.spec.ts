@@ -30,6 +30,11 @@ flowchart LR
 \`\`\`
 `;
 
+const TALL_CHAIN = `flowchart TD\n${Array.from(
+  { length: 40 },
+  (_, index) => `  Node${index + 1}[Node ${index + 1}]${index === 39 ? '' : ` --> Node${index + 2}`}`,
+).join('\n')}`;
+
 function monitorPrivacy(page: Page): () => void {
   const externalRequests: string[] = [];
   const writeRequests: string[] = [];
@@ -176,6 +181,119 @@ test('extracts, switches, edits, shares, and exports real WASM diagrams', async 
   expect((await downloadBytes(pngDownload)).subarray(0, 8)).toEqual(
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
   );
+  expectPrivateRequests();
+});
+
+test('keeps labels, geometry, and scaling visible in real SVG output', async ({ page }) => {
+  const expectPrivateRequests = monitorPrivacy(page);
+  await page.goto('./');
+
+  const previewSvg = page.locator('[data-preview] svg');
+  await page.locator('[data-diagram-item]').nth(1).click();
+  await expect(previewSvg).toBeVisible();
+  await expect(previewSvg.locator('.node text')).toHaveCount(4);
+  await expect(previewSvg.locator('.node text')).toHaveText(['Document', 'List', 'Editor', 'WASM']);
+
+  await page.getByRole('tab', { name: '当前图表' }).click();
+  const editor = page.getByRole('textbox', { name: '当前图表' });
+  await editor.fill('flowchart LR\n  A[Start] --> B((Circle))');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const circleGeometry = await previewSvg.evaluate(svg => {
+    const circle = svg.querySelector('#node-B circle');
+    const arrow = svg.querySelector('.edge polygon');
+    if (!circle || !arrow) throw new Error('Expected the circle node and its arrowhead.');
+    const [, , tipX, tipY] = arrow.getAttribute('points')!.trim().split(/[\s,]+/).map(Number);
+    return {
+      centerX: Number(circle.getAttribute('cx')),
+      centerY: Number(circle.getAttribute('cy')),
+      radius: Number(circle.getAttribute('r')),
+      tipX,
+      tipY,
+    };
+  });
+  expect(circleGeometry.tipX).toBeCloseTo(circleGeometry.centerX - circleGeometry.radius, 6);
+  expect(circleGeometry.tipY).toBeCloseTo(circleGeometry.centerY, 6);
+
+  const longLabel = 'A long label that must grow the upstream layout viewport instead of escaping past the SVG boundary';
+  await editor.fill(`flowchart TD\n  A[${longLabel}]`);
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const longLabelBounds = await previewSvg.evaluate(svg => {
+    const root = svg as SVGSVGElement;
+    const text = root.querySelector('#node-A text') as SVGGraphicsElement | null;
+    if (!text) throw new Error('Expected the long-label node text.');
+    const textBox = text.getBBox();
+    const { width, height } = root.viewBox.baseVal;
+    return {
+      textBox: { x: textBox.x, y: textBox.y, width: textBox.width, height: textBox.height },
+      width,
+      height,
+    };
+  });
+  expect(longLabelBounds.textBox.x).toBeGreaterThanOrEqual(-0.01);
+  expect(longLabelBounds.textBox.y).toBeGreaterThanOrEqual(-0.01);
+  expect(longLabelBounds.textBox.x + longLabelBounds.textBox.width).toBeLessThanOrEqual(longLabelBounds.width + 0.01);
+  expect(longLabelBounds.textBox.y + longLabelBounds.textBox.height).toBeLessThanOrEqual(longLabelBounds.height + 0.01);
+
+  const longEdgeLabel = 'wide edge label '.repeat(20);
+  await editor.fill(`flowchart TD\n  A -->|${longEdgeLabel}| B`);
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const longEdgeLabelBounds = await previewSvg.evaluate(svg => {
+    const root = svg as SVGSVGElement;
+    const text = root.querySelector('.edge text') as SVGGraphicsElement | null;
+    const background = root.querySelector('.edge rect') as SVGGraphicsElement | null;
+    if (!text || !background) throw new Error('Expected the long edge-label text and background.');
+    const textBox = text.getBBox();
+    const backgroundBox = background.getBBox();
+    const { width, height } = root.viewBox.baseVal;
+    return {
+      textBox: { x: textBox.x, y: textBox.y, width: textBox.width, height: textBox.height },
+      backgroundBox: { x: backgroundBox.x, y: backgroundBox.y, width: backgroundBox.width, height: backgroundBox.height },
+      width,
+      height,
+    };
+  });
+  for (const bounds of [longEdgeLabelBounds.textBox, longEdgeLabelBounds.backgroundBox]) {
+    expect(bounds.x).toBeGreaterThanOrEqual(-0.01);
+    expect(bounds.y).toBeGreaterThanOrEqual(-0.01);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(longEdgeLabelBounds.width + 0.01);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(longEdgeLabelBounds.height + 0.01);
+  }
+
+  await editor.fill(`flowchart TD\n  A[${'W'.repeat(5_000)}]`);
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const extremeNode = await previewSvg.evaluate(svg => {
+    const root = svg as SVGSVGElement;
+    const text = root.querySelector('#node-A text');
+    const title = root.querySelector('#node-A title');
+    const { width, height } = root.viewBox.baseVal;
+    return { width, height, renderedText: text?.textContent, fullLabelLength: title?.textContent?.length };
+  });
+  expect(extremeNode.width).toBeLessThanOrEqual(1_200);
+  expect(extremeNode.height).toBeLessThanOrEqual(1_200);
+  expect(extremeNode.renderedText).toContain('…');
+  expect(extremeNode.fullLabelLength).toBe(5_000);
+
+  await editor.fill(TALL_CHAIN);
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expect(previewSvg.locator('.node')).toHaveCount(40);
+  await expect(previewSvg.locator('.edge')).toHaveCount(39);
+  const tallDiagram = await previewSvg.evaluate(svg => {
+    const root = svg as SVGSVGElement;
+    const viewBox = root.viewBox.baseVal;
+    const rendered = root.getBoundingClientRect();
+    const preview = root.closest('.preview-canvas');
+    const text = root.querySelector('#node-Node20 text') as SVGGraphicsElement | null;
+    if (!preview || !text) throw new Error('Expected the tall diagram preview and a node label.');
+    return {
+      scaleX: rendered.width / viewBox.width,
+      scaleY: rendered.height / viewBox.height,
+      textHeight: text.getBoundingClientRect().height,
+      scrollsVertically: preview.scrollHeight > preview.clientHeight,
+    };
+  });
+  expect(Math.abs(tallDiagram.scaleX - tallDiagram.scaleY)).toBeLessThan(0.01);
+  expect(tallDiagram.textHeight).toBeGreaterThanOrEqual(10);
+  expect(tallDiagram.scrollsVertically).toBe(true);
   expectPrivateRequests();
 });
 

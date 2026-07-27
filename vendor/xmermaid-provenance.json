@@ -1,0 +1,8 @@
+{
+  "sourceRemote": "https://pkg.full-stacker.net/Evan/xmermaid.git",
+  "sourceBaseCommit": "97b5ea5e8eacd03ceb66f102ffad4bec7cc070f7",
+  "sourceBuildInputDiffSha256": "e43f16a6a900a0a959809f6d7d2616686bb8eb29cdac11805d0942d32c276435",
+  "packageFile": "vendor/xmermaid-0.1.0-97b5ea5.tgz",
+  "packageSha256": "c8dd713e1595c0cb1fde4567272369e4eb741053c53ba35365f2b3da09f7015a",
+  "wasmSha256": "5c4fa919a4af9a92002d64f12695f9017adf217c0168d822810769ae607704c2"
+}
