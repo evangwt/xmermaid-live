@@ -524,7 +524,7 @@ test('keeps the last SVG but blocks stale export after a render error', async ({
   await expect(previewSvg).toBeVisible();
   const successfulMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
   await page.getByRole('tab', { name: '当前图表' }).click();
-  await page.getByRole('textbox', { name: '当前图表' }).fill('gitGraph\n  commit id: "initial"');
+  await page.getByRole('textbox', { name: '当前图表' }).fill('not a diagram');
 
   await expect(page.locator('[data-preview-status]')).toHaveText('预览未更新');
   await expect(previewSvg).toBeVisible();
@@ -662,6 +662,20 @@ test('@cross-browser renders partial Requirement blocks and semantic relationshi
   await expect(preview).toContainText('Login');
   await expect(preview).toContainText('Validate credentials');
   await expect(preview).toContainText('satisfies');
+});
+
+test('@cross-browser renders partial GitGraph branches and merges', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\ngitGraph\n  commit id: "ZERO" tag: "v0.1.0"\n  branch develop\n  checkout develop\n  commit id: "FEATURE"\n  checkout main\n  merge develop id: "RELEASE" tag: "v1.0.0"\n```');
+  const item = page.locator('[data-diagram-item]');
+  await expect(item).toHaveAttribute('data-diagram-type', 'gitgraph');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const preview = page.locator('[data-preview] svg');
+  await expect(preview).toContainText('ZERO');
+  await expect(preview).toContainText('develop');
+  await expect(preview).toContainText('RELEASE');
 });
 
 test('switches to exactly one panel and preserves focus at a phone viewport', async ({ page }) => {
