@@ -628,6 +628,20 @@ test('@cross-browser renders native partial XY chart bars and lines', async ({ p
   await expect(preview.locator('.node')).toHaveCount(0);
 });
 
+test('@cross-browser renders native partial Sankey bands and nodes', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nsankey\nA,B,8\nA,C,4\nB,D,8\nC,D,4\n```');
+  const item = page.locator('[data-diagram-item]');
+  const preview = page.locator('[data-preview]');
+
+  await expect(item).toHaveAttribute('data-diagram-type', 'sankey');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expect(preview.locator('.sankey-link')).toHaveCount(4);
+  await expect(preview.locator('.sankey-node')).toHaveCount(4);
+  await expect(preview.locator('.edge')).toHaveCount(0);
+});
+
 test('@cross-browser renders partial User Journey tasks and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\njourney\n  title Checkout\n  section Explore\n    Find product: 5: Buyer\n  section Purchase\n    Pay securely: 4: Buyer, Store\n```');

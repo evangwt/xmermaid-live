@@ -131,6 +131,17 @@ describe('mountApp', () => {
     expect(item.dataset.diagramStatus).toBe('partial');
   });
 
+  it('marks the native Sankey CSV subset as partial instead of planned', () => {
+    mounted = mountApp(root(), {
+      initialText: '```mermaid\nsankey\nA,B,8\nB,C,8\n```',
+      renderer,
+    });
+
+    const item = document.querySelector<HTMLButtonElement>('[data-diagram-item]')!;
+    expect(item.dataset.diagramType).toBe('sankey');
+    expect(item.dataset.diagramStatus).toBe('partial');
+  });
+
   it('keeps the last valid SVG while a partial diagram reports its recovery state', async () => {
     vi.useFakeTimers();
     const stagedRenderer: PreviewRenderer = async source => {
