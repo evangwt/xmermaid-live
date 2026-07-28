@@ -120,6 +120,17 @@ describe('mountApp', () => {
     expect(writeText).toHaveBeenCalledWith('sequenceDiagram\n  A->>B: Hello');
   });
 
+  it('marks the native XY chart subset as partial instead of planned', () => {
+    mounted = mountApp(root(), {
+      initialText: '```mermaid\nxychart-beta\n  x-axis [Q1, Q2]\n  y-axis 0 --> 100\n  bar [20, 40]\n  line [30, 50]\n```',
+      renderer,
+    });
+
+    const item = document.querySelector<HTMLButtonElement>('[data-diagram-item]')!;
+    expect(item.dataset.diagramType).toBe('xychart');
+    expect(item.dataset.diagramStatus).toBe('partial');
+  });
+
   it('keeps the last valid SVG while a partial diagram reports its recovery state', async () => {
     vi.useFakeTimers();
     const stagedRenderer: PreviewRenderer = async source => {
