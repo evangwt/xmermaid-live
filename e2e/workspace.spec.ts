@@ -613,6 +613,19 @@ test('@cross-browser renders partial Pie slices and keeps its capability boundar
   await expect(preview).toContainText('Failed');
 });
 
+test('@cross-browser renders partial User Journey tasks and keeps its capability boundary visible', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\njourney\n  title Checkout\n  section Explore\n    Find product: 5: Buyer\n  section Purchase\n    Pay securely: 4: Buyer, Store\n```');
+  const item = page.locator('[data-diagram-item]');
+  await expect(item).toHaveAttribute('data-diagram-type', 'user-journey');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const preview = page.locator('[data-preview] svg');
+  await expect(preview).toContainText('Explore');
+  await expect(preview).toContainText('Pay securely');
+});
+
 test('@cross-browser renders partial Mindmap hierarchies and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nmindmap\n  Root\n    Product\n      Editor\n    Renderer\n```');
