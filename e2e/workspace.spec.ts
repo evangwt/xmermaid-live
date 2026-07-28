@@ -613,6 +613,19 @@ test('@cross-browser renders partial Pie slices and keeps its capability boundar
   await expect(preview).toContainText('Failed');
 });
 
+test('@cross-browser renders partial Mindmap hierarchies and keeps its capability boundary visible', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nmindmap\n  Root\n    Product\n      Editor\n    Renderer\n```');
+  const item = page.locator('[data-diagram-item]');
+  await expect(item).toHaveAttribute('data-diagram-type', 'mindmap');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const preview = page.locator('[data-preview] svg');
+  await expect(preview).toContainText('Root');
+  await expect(preview).toContainText('Editor');
+});
+
 test('switches to exactly one panel and preserves focus at a phone viewport', async ({ page }) => {
   const expectPrivateRequests = monitorPrivacy(page);
 
