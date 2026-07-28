@@ -524,7 +524,7 @@ test('keeps the last SVG but blocks stale export after a render error', async ({
   await expect(previewSvg).toBeVisible();
   const successfulMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
   await page.getByRole('tab', { name: '当前图表' }).click();
-  await page.getByRole('textbox', { name: '当前图表' }).fill('erDiagram\n  CUSTOMER ||--o{ ORDER : places');
+  await page.getByRole('textbox', { name: '当前图表' }).fill('gantt\n  title Project plan\n  section Delivery\n  Ship :done, 2026-07-28, 1d');
 
   await expect(page.locator('[data-preview-status]')).toHaveText('预览未更新');
   await expect(previewSvg).toBeVisible();
@@ -567,6 +567,23 @@ test('@cross-browser renders the partial Sequence subset and keeps its capabilit
   await expect(page.locator('[data-preview] svg')).toContainText('A');
   await expect(page.locator('[data-preview] svg')).toContainText('B');
   await expect(page.locator('[data-preview] svg')).toContainText('Hello');
+});
+
+test('@cross-browser renders the partial Entity Relationship subset and keeps its capability boundary visible', async ({ page }) => {
+  await page.goto('./');
+  const documentInput = page.getByRole('textbox', { name: '完整文本' });
+  await documentInput.fill('```mermaid\nerDiagram\n  CUSTOMER ||--o{ ORDER : places\n```');
+  const item = page.locator('[data-diagram-item]');
+  await expect(item).toHaveCount(1);
+  await expect(item).toHaveAttribute('data-diagram-type', 'er');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
+  await expect(page.getByRole('button', { name: '复制复现源码' })).toBeVisible();
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const preview = page.locator('[data-preview] svg');
+  await expect(preview).toContainText('CUSTOMER');
+  await expect(preview).toContainText('ORDER');
+  await expect(preview).toContainText('places');
 });
 
 test('switches to exactly one panel and preserves focus at a phone viewport', async ({ page }) => {
