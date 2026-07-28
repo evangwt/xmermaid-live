@@ -153,6 +153,17 @@ describe('mountApp', () => {
     expect(item.dataset.diagramStatus).toBe('partial');
   });
 
+  it('marks the native Architecture Diagram subset as partial instead of planned', () => {
+    mounted = mountApp(root(), {
+      initialText: '```mermaid\narchitecture-beta\n  service db(database)[Database]\n  service api(server)[API]\n  db:R --> L:api\n```',
+      renderer,
+    });
+
+    const item = document.querySelector<HTMLButtonElement>('[data-diagram-item]')!;
+    expect(item.dataset.diagramType).toBe('architecture');
+    expect(item.dataset.diagramStatus).toBe('partial');
+  });
+
   it('keeps the last valid SVG while a partial diagram reports its recovery state', async () => {
     vi.useFakeTimers();
     const stagedRenderer: PreviewRenderer = async source => {
