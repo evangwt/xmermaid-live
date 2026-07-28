@@ -146,14 +146,23 @@ button:disabled { cursor: not-allowed; opacity: .42; }
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: 208px minmax(360px, .9fr) minmax(420px, 1.25fr);
-  gap: 1px;
+  --list-width: 208px;
+  --editor-width: minmax(360px, .9fr);
+  --preview-width: minmax(420px, 1.25fr);
+  grid-template-columns: var(--list-width) 8px var(--editor-width) 8px var(--preview-width);
+  gap: 0;
   background: var(--border);
 }
 
 .diagram-panel,
 .editor-panel,
 .preview-panel { min-width: 0; min-height: 0; background: var(--surface-panel); }
+.workspace-divider { position: relative; z-index: 1; cursor: col-resize; background: var(--border); }
+.workspace-divider::after { content: ''; position: absolute; inset: 0 3px; background: transparent; }
+.workspace-divider:hover, .workspace-divider:focus-visible { background: var(--accent); outline: 0; }
+.app-shell[data-list-collapsed="true"] .diagram-panel,
+.app-shell[data-list-collapsed="true"] [data-workspace-divider="list"] { display: none; }
+.app-shell[data-list-collapsed="true"] .workspace { grid-template-columns: var(--editor-width) 8px var(--preview-width); }
 .diagram-panel { padding: 14px; overflow-y: auto; }
 .preview-panel { padding: 14px 14px 10px; }
 .panel-heading { min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -282,6 +291,8 @@ summary:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 input:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.quiet-icon-button { width: 32px; min-width: 32px; height: 32px; padding: 6px; border-color: transparent; background: transparent; }
+.quiet-icon-button svg { width: 100%; height: 100%; display: block; }
 
 @media (max-width: 1024px) {
   body { overflow: hidden; }
@@ -303,6 +314,7 @@ input:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .mobile-nav button { min-height: 44px; }
   .mobile-nav button[aria-pressed="true"] { color: var(--accent-strong); border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
   .workspace { display: block; min-height: 0; height: 100%; overflow: hidden; background: var(--surface-panel); }
+  .workspace-divider, .app-shell[data-list-collapsed="true"] .workspace-divider { display: none; }
   [data-panel] { display: none; min-height: 0; height: 100%; }
   .app-shell[data-mobile-panel="list"] [data-panel="list"],
   .app-shell[data-mobile-panel="edit"] [data-panel="edit"],
