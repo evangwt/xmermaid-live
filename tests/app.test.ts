@@ -65,6 +65,14 @@ function previewResult(label: string): PreviewRenderResult {
 }
 
 describe('mountApp', () => {
+  it('presents the workspace as a focused diagram studio', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+
+    expect(document.querySelector('.brand')?.textContent).toContain('DIAGRAM STUDIO');
+    expect(document.querySelector('[data-preview-canvas]')?.getAttribute('aria-label')).toBe('图表画布');
+    expect(document.querySelector('.preview-actions')?.getAttribute('aria-label')).toBe('画布视图控制');
+  });
+
   it('extracts a pasted document into a switchable diagram list', async () => {
     vi.useFakeTimers();
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer, renderDelayMs: 10 });
@@ -585,10 +593,10 @@ describe('mountApp', () => {
   it('applies distinct semantic workbench themes without changing panel geometry', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
     const shell = document.querySelector<HTMLElement>('.app-shell')!;
-    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#0B0A12');
+    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#090A12');
 
     document.querySelector<HTMLButtonElement>('[data-theme-option="light"]')!.click();
-    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#F5F3FA');
+    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#F4F3F8');
     expect(getComputedStyle(document.querySelector<HTMLElement>('.workspace')!).getPropertyValue('--list-width').trim()).toBe('168px');
   });
 });

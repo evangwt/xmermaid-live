@@ -524,7 +524,7 @@ test('keeps the last SVG but blocks stale export after a render error', async ({
   await expect(previewSvg).toBeVisible();
   const successfulMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
   await page.getByRole('tab', { name: '当前图表' }).click();
-  await page.getByRole('textbox', { name: '当前图表' }).fill('pie\n  title Project plan\n  "Ship" : 1');
+  await page.getByRole('textbox', { name: '当前图表' }).fill('timeline\n  title Project plan\n  2026-07-28 : Ship');
 
   await expect(page.locator('[data-preview-status]')).toHaveText('预览未更新');
   await expect(previewSvg).toBeVisible();
