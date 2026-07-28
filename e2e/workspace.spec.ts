@@ -271,15 +271,14 @@ test('switches paired themes, preserves custom style, and restores it locally', 
   await expect(page.getByRole('slider', { name: '箭头大小' })).toHaveValue('10');
 });
 
-test('opens and closes diagram styles by keyboard and restores focus', async ({ page }) => {
+test('opens the desktop style inspector without blocking editor focus', async ({ page }) => {
   await page.goto('./');
   const opener = page.getByRole('button', { name: '图表样式' });
   await opener.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('dialog', { name: '图表样式' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: '图表样式' })).toBeHidden();
-  await expect(opener).toBeFocused();
+  await expect(page.locator('.app-shell')).toHaveAttribute('data-inspector-open', 'true');
+  await page.getByRole('textbox', { name: '完整文本' }).focus();
+  await expect(page.getByRole('textbox', { name: '完整文本' })).toBeFocused();
 });
 
 test('exports the currently rendered custom colors', async ({ page }) => {
