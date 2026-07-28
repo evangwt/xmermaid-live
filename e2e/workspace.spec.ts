@@ -524,7 +524,7 @@ test('keeps the last SVG but blocks stale export after a render error', async ({
   await expect(previewSvg).toBeVisible();
   const successfulMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
   await page.getByRole('tab', { name: '当前图表' }).click();
-  await page.getByRole('textbox', { name: '当前图表' }).fill('sequenceDiagram\n  Alice->>Bob: Hello');
+  await page.getByRole('textbox', { name: '当前图表' }).fill('classDiagram\n  class Account');
 
   await expect(page.locator('[data-preview-status]')).toHaveText('预览未更新');
   await expect(previewSvg).toBeVisible();
@@ -553,21 +553,20 @@ test('reports an invalid flowchart without replacing the last successful SVG', a
   expectPrivateRequests();
 });
 
-test('keeps planned Mermaid families visible with a recovery path', async ({ page }) => {
+test('@cross-browser renders the partial Sequence subset and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   const documentInput = page.getByRole('textbox', { name: '完整文本' });
-  await documentInput.fill('flowchart TD\n  Start --> End');
-  await expect(page.locator('[data-preview] svg')).toBeVisible();
-  const previousSvg = await page.locator('[data-preview] svg').evaluate(svg => svg.outerHTML);
-
   await documentInput.fill('```mermaid\nsequenceDiagram\n  A->>B: Hello\n```');
   const item = page.locator('[data-diagram-item]');
   await expect(item).toHaveCount(1);
   await expect(item).toHaveAttribute('data-diagram-type', 'sequence');
-  await expect(item).toHaveAttribute('data-diagram-status', 'planned');
-  await expect(page.locator('[data-capability-recovery]')).toContainText('计划中');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
   await expect(page.getByRole('button', { name: '复制复现源码' })).toBeVisible();
-  await expect(page.locator('[data-preview] svg')).toHaveJSProperty('outerHTML', previousSvg);
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expect(page.locator('[data-preview] svg')).toContainText('A');
+  await expect(page.locator('[data-preview] svg')).toContainText('B');
+  await expect(page.locator('[data-preview] svg')).toContainText('Hello');
 });
 
 test('switches to exactly one panel and preserves focus at a phone viewport', async ({ page }) => {
