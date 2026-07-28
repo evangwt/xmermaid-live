@@ -712,6 +712,16 @@ test('restores local content and keeps canvas controls reachable', async ({ page
   await expect(page.locator('[data-preview-stage]')).toHaveAttribute('data-viewport-mode', 'manual');
   await expect(page.locator('[data-preview-minimap] svg')).toBeVisible();
   await expect(page.locator('[data-preview-minimap-viewport]')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => {
+    const raw = localStorage.getItem('xmermaid-live.workspace.v2');
+    return raw ? JSON.parse(raw) : null;
+  })).toMatchObject({
+    version: 2,
+    documentText,
+    layoutPreferences: expect.any(Object),
+    themePreferences: expect.any(Object),
+    viewports: expect.any(Object),
+  });
 
   await page.reload();
   await expect(page.getByRole('textbox', { name: '完整文本' })).toHaveValue(documentText);

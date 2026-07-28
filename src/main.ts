@@ -5,24 +5,35 @@ import { createWorkspaceDocumentForDiagram } from './document-model';
 import { parseLayoutPreferences, serializeLayoutPreferences } from './layout-preferences';
 import { SAMPLE_DOCUMENT } from './sample';
 import { parseThemePreferences, serializeThemePreferences } from './theme';
-import { parseWorkspaceCache, serializeWorkspaceCache } from './workspace-cache';
+import { createWorkspaceCacheWriter, parseWorkspaceCache } from './workspace-cache';
 
 const LAYOUT_STORAGE_KEY = 'xmermaid-live.layout.v1';
 const THEME_STORAGE_KEY = 'xmermaid-live.theme.v1';
-const DOCUMENT_STORAGE_KEY = 'xmermaid-live.document.v1';
+const WORKSPACE_STORAGE_KEY = 'xmermaid-live.workspace.v2';
+const LEGACY_DOCUMENT_STORAGE_KEY = 'xmermaid-live.document.v1';
 
 const root = document.querySelector<HTMLElement>('#app');
 if (!root) throw new Error('Missing #app root.');
 
 const restored = decodeShareState(window.location.hash);
-const cachedText = parseWorkspaceCache(safeRead(DOCUMENT_STORAGE_KEY));
-const initialText = restored?.documentText ?? cachedText ?? SAMPLE_DOCUMENT;
-const initialState = createWorkspaceDocumentForDiagram(initialText, restored?.selectedDiagramId ?? null);
-const initialLayoutPreferences = parseLayoutPreferences(safeRead(LAYOUT_STORAGE_KEY));
-const initialThemePreferences = parseThemePreferences(safeRead(THEME_STORAGE_KEY));
+const cachedWorkspace = parseWorkspaceCache(safeRead(WORKSPACE_STORAGE_KEY))
+  ?? parseWorkspaceCache(safeRead(LEGACY_DOCUMENT_STORAGE_KEY));
+const initialText = restored?.documentText ?? cachedWorkspace?.documentText ?? SAMPLE_DOCUMENT;
+const initialState = createWorkspaceDocumentForDiagram(initialText, restored?.selectedDiagramId ?? cachedWorkspace?.selectedDiagramId ?? null);
+const initialLayoutPreferences = cachedWorkspace?.layoutPreferences
+  ? parseLayoutPreferences(JSON.stringify(cachedWorkspace.layoutPreferences))
+  : parseLayoutPreferences(safeRead(LAYOUT_STORAGE_KEY));
+const initialThemePreferences = cachedWorkspace?.themePreferences
+  ? parseThemePreferences(JSON.stringify(cachedWorkspace.themePreferences))
+  : parseThemePreferences(safeRead(THEME_STORAGE_KEY));
+const workspaceCacheWriter = createWorkspaceCacheWriter({
+  storage: safeStorage(),
+  key: WORKSPACE_STORAGE_KEY,
+});
 mountApp(root, {
   initialText,
   initialSelectedIndex: initialState.selectedIndex ?? 0,
+  initialViewports: cachedWorkspace?.viewports,
   initialLayoutPreferences,
   persistLayoutPreferences: preferences => {
     safeWrite(LAYOUT_STORAGE_KEY, serializeLayoutPreferences(preferences));
@@ -31,12 +42,17 @@ mountApp(root, {
   persistThemePreferences: preferences => {
     safeWrite(THEME_STORAGE_KEY, serializeThemePreferences(preferences));
   },
-  persistDocumentText: text => {
-    const serialized = serializeWorkspaceCache(text);
-    if (serialized) safeWrite(DOCUMENT_STORAGE_KEY, serialized);
-    else safeRemove(DOCUMENT_STORAGE_KEY);
-  },
+  persistDocumentText: () => {},
+  persistWorkspaceState: state => workspaceCacheWriter.schedule(state),
 });
+
+function safeStorage(): Pick<Storage, 'setItem'> {
+  try {
+    return window.localStorage;
+  } catch {
+    return { setItem: () => { throw new Error('Storage unavailable'); } };
+  }
+}
 
 function safeRead(key: string): string | null {
   try {
@@ -49,14 +65,6 @@ function safeRead(key: string): string | null {
 function safeWrite(key: string, value: string): void {
   try {
     window.localStorage.setItem(key, value);
-  } catch {
-    // Storage is an optional preference cache; rendering continues without it.
-  }
-}
-
-function safeRemove(key: string): void {
-  try {
-    window.localStorage.removeItem(key);
   } catch {
     // Storage is an optional preference cache; rendering continues without it.
   }
