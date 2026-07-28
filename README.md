@@ -17,6 +17,14 @@ npm run dev
 
 Paste Markdown containing one or more fenced `mermaid` / `xmermaid` blocks. A document that consists only of one raw `graph` or `flowchart` block is also supported. xmermaid currently implements partial flowchart support and reports unsupported Mermaid types or syntax explicitly.
 
+## Workbench controls
+
+On desktop, drag either separator to resize the diagram list, editor, and preview; use keyboard arrows on a focused separator for precise movement, `Shift` for larger steps, and double-click to restore defaults. The list can be collapsed without losing the current diagram.
+
+Preview controls change only the local view: zoom ranges from 25% to 400%, `适配预览` restores a fitted view, and fullscreen falls back to an in-app maximized preview when the browser blocks fullscreen. Pane layout is saved locally; preview zoom and pan reset on refresh and are never placed in share links.
+
+On compact layouts, 图表、编辑、预览 move to the bottom navigation. 分享 and 导出 are in 更多, and 图表样式 opens a full-height sheet that returns to the prior panel on 完成.
+
 ## Verify
 
 ```bash

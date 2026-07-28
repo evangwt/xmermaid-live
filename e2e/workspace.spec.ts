@@ -197,6 +197,76 @@ function singleDistAsset(extension: string): string {
   return matching[0]!;
 }
 
+interface ViewportRect {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
+interface WorkspaceGeometry {
+  viewport: { width: number; height: number };
+  topbar: ViewportRect;
+  workspace: ViewportRect;
+  activePanel: ViewportRect;
+  diagnostics: ViewportRect | null;
+  navigation: ViewportRect | null;
+}
+
+async function expectResponsiveGeometry(page: Page): Promise<void> {
+  const geometry = await page.locator('.app-shell').evaluate(shell => {
+    const rect = (element: Element): ViewportRect => {
+      const { top, bottom, left, right } = element.getBoundingClientRect();
+      return { top, bottom, left, right };
+    };
+    const visible = (element: Element | null): element is HTMLElement => {
+      if (!element) return false;
+      return getComputedStyle(element).display !== 'none';
+    };
+    const workspace = shell.querySelector<HTMLElement>('.workspace')!;
+    const compact = window.matchMedia('(max-width: 1024px)').matches;
+    const activePanel = compact
+      ? shell.querySelector<HTMLElement>(`[data-panel="${shell.dataset.mobilePanel}"]`)!
+      : workspace;
+    const diagnostics = shell.querySelector<HTMLElement>('[data-diagnostics]');
+    const navigation = shell.querySelector<HTMLElement>('[data-mobile-navigation]');
+
+    return {
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      topbar: rect(shell.querySelector('.topbar')!),
+      workspace: rect(workspace),
+      activePanel: rect(activePanel),
+      diagnostics: visible(diagnostics) ? rect(diagnostics) : null,
+      navigation: visible(navigation) ? rect(navigation) : null,
+    };
+  });
+
+  const withinViewport = (box: ViewportRect) => {
+    expect(box.top).toBeGreaterThanOrEqual(-1);
+    expect(box.left).toBeGreaterThanOrEqual(-1);
+    expect(box.bottom).toBeLessThanOrEqual(geometry.viewport.height + 1);
+    expect(box.right).toBeLessThanOrEqual(geometry.viewport.width + 1);
+  };
+
+  withinViewport(geometry.topbar);
+  withinViewport(geometry.workspace);
+  withinViewport(geometry.activePanel);
+  expect(geometry.workspace.top).toBeGreaterThanOrEqual(geometry.topbar.bottom - 1);
+
+  if (geometry.navigation) {
+    withinViewport(geometry.navigation);
+    expect(geometry.workspace.bottom).toBeLessThanOrEqual(geometry.navigation.top + 1);
+  }
+  if (geometry.diagnostics) {
+    withinViewport(geometry.diagnostics);
+    if (geometry.navigation) {
+      expect(geometry.diagnostics.bottom).toBeLessThanOrEqual(geometry.navigation.top + 1);
+    } else {
+      expect(geometry.workspace.bottom).toBeLessThanOrEqual(geometry.diagnostics.top + 1);
+    }
+  }
+}
+
 test('extracts, switches, edits, shares, and exports real WASM diagrams', async ({ page }) => {
   const expectPrivateRequests = monitorPrivacy(page);
 
@@ -542,6 +612,39 @@ test('uses the single-panel layout before the desktop grid would clip', async ({
   await page.getByRole('button', { name: '预览', exact: true }).click();
   await expect(page.locator('[data-panel="preview"]')).toBeVisible();
   await expect(page.locator('[data-panel="edit"]')).toBeHidden();
+});
+
+test('persists desktop pane proportions without persisting the canvas viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('./');
+  const workspace = page.locator('.workspace');
+  const divider = page.getByRole('separator', { name: '调整图表列表宽度' });
+  const before = await workspace.evaluate(element => getComputedStyle(element).getPropertyValue('--list-width'));
+
+  await divider.focus();
+  await page.keyboard.press('Shift+ArrowRight');
+  const after = await workspace.evaluate(element => getComputedStyle(element).getPropertyValue('--list-width'));
+  expect(after).not.toBe(before);
+
+  await page.getByRole('button', { name: '放大预览' }).click();
+  await expect(page.locator('[data-preview-stage]')).toHaveAttribute('data-viewport-mode', 'manual');
+  await page.reload();
+
+  await expect(workspace).toHaveCSS('--list-width', after);
+  await expect(page.locator('[data-preview-stage]')).toHaveAttribute('data-viewport-mode', 'fit');
+});
+
+test('keeps workbench geometry within every supported viewport', async ({ page }) => {
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 },
+    { width: 390, height: 844 },
+    { width: 320, height: 568 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto('./');
+    await expectResponsiveGeometry(page);
+  }
 });
 
 test('switches editor tabs with the keyboard', async ({ page }) => {
