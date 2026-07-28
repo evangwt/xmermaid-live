@@ -657,6 +657,19 @@ test('@cross-browser renders native partial Quadrant Chart cells and points', as
   await expect(preview.locator('.edge')).toHaveCount(0);
 });
 
+test('@cross-browser renders partial Architecture Diagram services and relationships', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\narchitecture-beta\n  service db(database)[Database]\n  service api(server)[API]\n  db:R --> L:api\n```');
+  const item = page.locator('[data-diagram-item]');
+  const preview = page.locator('[data-preview]');
+
+  await expect(item).toHaveAttribute('data-diagram-type', 'architecture');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expect(preview.locator('.node')).toHaveCount(2);
+  await expect(preview.locator('.edge')).toHaveCount(1);
+});
+
 test('@cross-browser renders partial User Journey tasks and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\njourney\n  title Checkout\n  section Explore\n    Find product: 5: Buyer\n  section Purchase\n    Pay securely: 4: Buyer, Store\n```');
