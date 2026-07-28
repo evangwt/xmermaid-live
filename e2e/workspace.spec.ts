@@ -524,7 +524,7 @@ test('keeps the last SVG but blocks stale export after a render error', async ({
   await expect(previewSvg).toBeVisible();
   const successfulMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
   await page.getByRole('tab', { name: '当前图表' }).click();
-  await page.getByRole('textbox', { name: '当前图表' }).fill('requirementDiagram\n  requirement Ship {\n    id: 1\n  }');
+  await page.getByRole('textbox', { name: '当前图表' }).fill('gitGraph\n  commit id: "initial"');
 
   await expect(page.locator('[data-preview-status]')).toHaveText('预览未更新');
   await expect(previewSvg).toBeVisible();
@@ -648,6 +648,20 @@ test('@cross-browser renders partial Mindmap hierarchies and keeps its capabilit
   const preview = page.locator('[data-preview] svg');
   await expect(preview).toContainText('Root');
   await expect(preview).toContainText('Editor');
+});
+
+test('@cross-browser renders partial Requirement blocks and semantic relationships', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nrequirementDiagram\n  requirement Login {\n    id: 1\n    text: User must log in\n    risk: high\n    verifymethod: test\n  }\n  functionalRequirement Authenticate {\n    text: Validate credentials\n  }\n  Login - satisfies -> Authenticate\n```');
+  const item = page.locator('[data-diagram-item]');
+  await expect(item).toHaveAttribute('data-diagram-type', 'requirement');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const preview = page.locator('[data-preview] svg');
+  await expect(preview).toContainText('Login');
+  await expect(preview).toContainText('Validate credentials');
+  await expect(preview).toContainText('satisfies');
 });
 
 test('switches to exactly one panel and preserves focus at a phone viewport', async ({ page }) => {
