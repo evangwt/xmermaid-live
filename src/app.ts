@@ -25,6 +25,7 @@ import {
   viewportForDiagram,
   viewportTransform,
   zoomCanvasViewport,
+  zoomCanvasViewportAt,
   type CanvasSize,
   type CanvasViewport,
 } from './canvas-viewport';
@@ -49,6 +50,7 @@ export interface AppOptions {
   persistThemePreferences?: (preferences: ThemePreferences) => void;
   initialLayoutPreferences?: WorkspaceLayoutPreferences;
   persistLayoutPreferences?: (preferences: WorkspaceLayoutPreferences) => void;
+  persistDocumentText?: (text: string) => void;
 }
 
 export interface MountedApp {
@@ -90,6 +92,7 @@ const SHELL = `
         <div class="panel-heading"><h2>图表</h2><span data-diagram-count></span><button type="button" class="quiet-icon-button" data-list-collapse aria-label="收起图表列表">${icon('chevron-left')}</button></div>
         <div class="diagram-list" data-diagram-list></div>
       </aside>
+      <button type="button" class="list-restore-button quiet-icon-button" data-list-restore aria-label="展开图表列表" title="展开图表列表">${icon('chevron-right')}</button>
       <div class="workspace-divider" data-workspace-divider="list" role="separator" aria-orientation="vertical" aria-label="调整图表列表宽度" tabindex="0"></div>
       <section class="editor-panel" data-panel="edit">
         <div class="editor-tabs" role="tablist" aria-label="编辑内容">
@@ -107,8 +110,8 @@ const SHELL = `
       </section>
       <div class="workspace-divider" data-workspace-divider="editor" role="separator" aria-orientation="vertical" aria-label="调整编辑器与预览宽度" tabindex="0"></div>
       <section class="preview-panel" data-panel="preview" aria-label="实时预览">
-        <div class="panel-heading"><h2>预览</h2><span data-preview-status></span><div class="preview-actions" role="group" aria-label="预览画布"><button type="button" class="quiet-icon-button" data-preview-zoom="out" aria-label="缩小预览" title="缩小预览">${icon('minus')}</button><button type="button" class="quiet-icon-button" data-preview-fit aria-label="适配预览" title="适配预览">${icon('fit')}</button><button type="button" class="quiet-icon-button" data-preview-zoom="in" aria-label="放大预览" title="放大预览">${icon('plus')}</button><button type="button" class="quiet-icon-button" data-preview-fullscreen aria-label="全屏预览" title="全屏预览">${icon('maximize')}</button><button type="button" class="quiet-icon-button" data-preview-maximize-exit aria-label="退出最大化预览" title="退出最大化预览">${icon('chevron-right')}</button></div></div>
-        <div class="preview-content-grid"><div class="preview-canvas" data-preview-canvas><div class="preview-stage" data-preview-stage data-viewport-mode="fit" data-preview></div></div><aside class="preview-inspector" data-style-desktop-host aria-label="图表样式"><div class="style-inspector-content" data-style-content><header class="style-inspector-header"><h2 id="style-title">图表样式</h2><button type="button" class="icon-button" data-style-close aria-label="关闭图表样式"><span class="style-close-desktop">×</span><span class="style-close-compact">完成</span></button></header><div class="style-drawer-body" data-style-body><fieldset><legend>主题</legend><div class="theme-switch theme-switch-drawer" role="group" aria-label="图表基础主题"><button type="button" data-theme-option="dark" aria-pressed="true">深色</button><button type="button" data-theme-option="light" aria-pressed="false">浅色</button></div></fieldset><fieldset><legend>颜色</legend><div class="color-controls"><label class="style-control"><span>画布</span><input type="color" data-style-color="background"></label><label class="style-control"><span>节点</span><input type="color" data-style-color="nodeFill"></label><label class="style-control"><span>节点描边</span><input type="color" data-style-color="nodeStroke"></label><label class="style-control"><span>连线</span><input type="color" data-style-color="edgeStroke"></label><label class="style-control"><span>箭头颜色</span><input type="color" data-style-color="arrowFill"></label></div><details data-style-advanced-colors><summary>更多颜色</summary><div class="color-controls"><label class="style-control"><span>节点文字</span><input type="color" data-style-color="nodeText"></label><label class="style-control"><span>连线标签</span><input type="color" data-style-color="edgeLabel"></label><label class="style-control"><span>子图</span><input type="color" data-style-color="subgraphFill"></label><label class="style-control"><span>子图描边</span><input type="color" data-style-color="subgraphStroke"></label></div></details></fieldset><fieldset><legend>几何</legend><div class="style-control style-control-stack" data-style-row="curveStyle"><span>曲线</span><div class="segmented-control" role="group" aria-label="曲线样式"><button type="button" data-style-option="bezier" aria-pressed="true">贝塞尔</button><button type="button" data-style-option="step" aria-pressed="false">折线</button><button type="button" data-style-option="straight" aria-pressed="false">直线</button></div></div><label class="style-control" data-style-row="arrowStyle"><span>箭头类型</span><select data-style-select="arrowStyle"><option value="filled">实心</option><option value="triangle">三角</option><option value="open">开放</option><option value="circle">圆形</option><option value="cross">交叉</option></select></label><label class="style-control range-control" data-style-row="edgeGap"><span>箭头与节点间距</span><output data-style-output="edgeGap"></output><input type="range" min="0" max="24" step="1" aria-label="箭头与节点间距" data-style-number="edgeGap"></label><label class="style-control range-control" data-style-row="arrowSize"><span>箭头大小</span><output data-style-output="arrowSize"></output><input type="range" min="4" max="32" step="1" aria-label="箭头大小" data-style-number="arrowSize"></label><label class="style-control range-control" data-style-row="nodeBorderRadius"><span>节点圆角</span><output data-style-output="nodeBorderRadius"></output><input type="range" min="0" max="24" step="1" aria-label="节点圆角" data-style-number="nodeBorderRadius"></label></fieldset><details data-style-advanced-text><summary>文字与字体</summary><label class="style-control" data-style-row="fontFamily"><span>字体</span><select data-style-select="fontFamily"><option value="sans-serif">系统字体</option><option value="Inter, ui-sans-serif, system-ui, sans-serif">界面字体</option><option value="ui-monospace, SFMono-Regular, Consolas, monospace">等宽字体</option></select></label><label class="style-control range-control" data-style-row="fontSize"><span>字号</span><output data-style-output="fontSize"></output><input type="range" min="10" max="24" step="1" aria-label="字号" data-style-number="fontSize"></label></details></div><footer class="style-drawer-footer" data-style-footer><button type="button" data-style-reset>重置图表样式</button></footer></div></aside></div>
+        <div class="panel-heading"><h2>预览</h2><span data-preview-status></span><div class="preview-actions" role="group" aria-label="预览画布"><button type="button" class="quiet-icon-button" data-preview-zoom="out" aria-label="缩小预览" title="缩小预览">${icon('minus')}</button><button type="button" class="quiet-icon-button" data-preview-fit aria-label="适配预览" title="适配预览">${icon('fit')}</button><button type="button" class="quiet-icon-button" data-preview-zoom="in" aria-label="放大预览" title="放大预览">${icon('plus')}</button><button type="button" class="quiet-icon-button" data-preview-fullscreen aria-label="全屏预览" title="全屏预览">${icon('maximize')}</button></div></div>
+        <div class="preview-content-grid"><div class="preview-canvas" data-preview-canvas><div class="preview-stage" data-preview-stage data-viewport-mode="fit" data-preview></div><div class="preview-minimap" data-preview-minimap aria-hidden="true"></div></div><aside class="preview-inspector" data-style-desktop-host aria-label="图表样式"><div class="style-inspector-content" data-style-content><header class="style-inspector-header"><h2 id="style-title">图表样式</h2><button type="button" class="icon-button" data-style-close aria-label="关闭图表样式"><span class="style-close-desktop">×</span><span class="style-close-compact">完成</span></button></header><div class="style-drawer-body" data-style-body><fieldset><legend>主题</legend><div class="theme-switch theme-switch-drawer" role="group" aria-label="图表基础主题"><button type="button" data-theme-option="dark" aria-pressed="true">深色</button><button type="button" data-theme-option="light" aria-pressed="false">浅色</button></div></fieldset><fieldset><legend>颜色</legend><div class="color-controls"><label class="style-control"><span>画布</span><input type="color" data-style-color="background"></label><label class="style-control"><span>节点</span><input type="color" data-style-color="nodeFill"></label><label class="style-control"><span>节点描边</span><input type="color" data-style-color="nodeStroke"></label><label class="style-control"><span>连线</span><input type="color" data-style-color="edgeStroke"></label><label class="style-control"><span>箭头颜色</span><input type="color" data-style-color="arrowFill"></label></div><details data-style-advanced-colors><summary>更多颜色</summary><div class="color-controls"><label class="style-control"><span>节点文字</span><input type="color" data-style-color="nodeText"></label><label class="style-control"><span>连线标签</span><input type="color" data-style-color="edgeLabel"></label><label class="style-control"><span>子图</span><input type="color" data-style-color="subgraphFill"></label><label class="style-control"><span>子图描边</span><input type="color" data-style-color="subgraphStroke"></label></div></details></fieldset><fieldset><legend>几何</legend><div class="style-control style-control-stack" data-style-row="curveStyle"><span>曲线</span><div class="segmented-control" role="group" aria-label="曲线样式"><button type="button" data-style-option="bezier" aria-pressed="true">贝塞尔</button><button type="button" data-style-option="step" aria-pressed="false">折线</button><button type="button" data-style-option="straight" aria-pressed="false">直线</button></div></div><label class="style-control" data-style-row="arrowStyle"><span>箭头类型</span><select data-style-select="arrowStyle"><option value="filled">实心</option><option value="triangle">三角</option><option value="open">开放</option><option value="circle">圆形</option><option value="cross">交叉</option></select></label><label class="style-control range-control" data-style-row="edgeGap"><span>箭头与节点间距</span><output data-style-output="edgeGap"></output><input type="range" min="0" max="24" step="1" aria-label="箭头与节点间距" data-style-number="edgeGap"></label><label class="style-control range-control" data-style-row="arrowSize"><span>箭头大小</span><output data-style-output="arrowSize"></output><input type="range" min="4" max="32" step="1" aria-label="箭头大小" data-style-number="arrowSize"></label><label class="style-control range-control" data-style-row="nodeBorderRadius"><span>节点圆角</span><output data-style-output="nodeBorderRadius"></output><input type="range" min="0" max="24" step="1" aria-label="节点圆角" data-style-number="nodeBorderRadius"></label></fieldset><details data-style-advanced-text><summary>文字与字体</summary><label class="style-control" data-style-row="fontFamily"><span>字体</span><select data-style-select="fontFamily"><option value="sans-serif">系统字体</option><option value="Inter, ui-sans-serif, system-ui, sans-serif">界面字体</option><option value="ui-monospace, SFMono-Regular, Consolas, monospace">等宽字体</option></select></label><label class="style-control range-control" data-style-row="fontSize"><span>字号</span><output data-style-output="fontSize"></output><input type="range" min="10" max="24" step="1" aria-label="字号" data-style-number="fontSize"></label></details></div><footer class="style-drawer-footer" data-style-footer><button type="button" data-style-reset>重置图表样式</button></footer></div></aside></div>
       </section>
     </div>
     <section class="diagnostics diagnostics-bar" data-diagnostics aria-live="polite" aria-atomic="true"></section>
@@ -155,10 +158,11 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     : null;
   const styleResetButton = required<HTMLButtonElement>(root, '[data-style-reset]');
   const listCollapseButton = required<HTMLButtonElement>(root, '[data-list-collapse]');
+  const listRestoreButton = required<HTMLButtonElement>(root, '[data-list-restore]');
   const mobileThemeButton = required<HTMLButtonElement>(root, '[data-mobile-theme]');
   const previewFitButton = required<HTMLButtonElement>(root, '[data-preview-fit]');
   const previewFullscreenButton = required<HTMLButtonElement>(root, '[data-preview-fullscreen]');
-  const previewMaximizeExitButton = required<HTMLButtonElement>(root, '[data-preview-maximize-exit]');
+  const previewMinimap = required<HTMLElement>(root, '[data-preview-minimap]');
   const exporter = options.exporter ?? exportDiagram;
   const saveBlob = options.saveBlob ?? downloadBlob;
   let state = createWorkspaceDocument(options.initialText, options.initialSelectedIndex ?? 0);
@@ -227,6 +231,10 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   listCollapseButton.addEventListener('click', () => {
     applyLayoutPreferences(toggleListCollapsed(layoutPreferences), true);
   });
+  listRestoreButton.addEventListener('click', () => {
+    applyLayoutPreferences(toggleListCollapsed(layoutPreferences), true);
+    listCollapseButton.focus();
+  });
 
   for (const divider of root.querySelectorAll<HTMLElement>('[data-workspace-divider]')) {
     const kind = divider.dataset.workspaceDivider as WorkspaceDivider;
@@ -246,16 +254,16 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   }
   previewFitButton.addEventListener('click', refitActiveViewport);
   previewFullscreenButton.addEventListener('click', () => void togglePreviewFullscreen());
-  previewMaximizeExitButton.addEventListener('click', () => setPreviewMaximized(false));
   previewCanvas.addEventListener('wheel', event => {
-    if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
+    const bounds = previewCanvas.getBoundingClientRect();
     const multiplier = event.deltaY < 0 ? 1.2 : 1 / 1.2;
-    setActiveViewport(zoomCanvasViewport(
+    setActiveViewport(zoomCanvasViewportAt(
       activeViewport,
       previewContentSize(),
       previewContainerSize(),
       activeViewport.scale * multiplier,
+      { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
     ));
   }, { passive: false });
   previewCanvas.addEventListener('pointerdown', event => {
@@ -290,9 +298,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     if (activeViewport.mode === 'fit') refitActiveViewport();
   };
   const handleFullscreenChange = () => {
-    const fullscreen = document.fullscreenElement === previewPanel;
-    previewFullscreenButton.setAttribute('aria-label', fullscreen ? '退出全屏预览' : '全屏预览');
-    previewFullscreenButton.title = fullscreen ? '退出全屏预览' : '全屏预览';
+    updatePreviewPresentationControl();
   };
   const handleCompactLayoutChange = (event: MediaQueryListEvent) => {
     const inspectorOpen = styleDialog.open || shell.dataset.inspectorOpen === 'true';
@@ -361,10 +367,12 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
 
   documentInput.addEventListener('input', () => {
     state = setWorkspaceText(state, documentInput.value);
+    options.persistDocumentText?.(state.text);
     renderDocument();
   });
   diagramInput.addEventListener('input', () => {
     state = replaceSelectedDiagramSource(state, diagramInput.value);
+    options.persistDocumentText?.(state.text);
     renderDocument();
   });
   list.addEventListener('click', event => {
@@ -498,8 +506,13 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
         : snapshot.status === 'error'
           ? '预览未更新'
           : '等待图表';
-    if (snapshot.svg) preview.replaceChildren(snapshot.svg);
-    else preview.replaceChildren(emptyPreview(snapshot.status === 'idle'));
+    if (snapshot.svg) {
+      preview.replaceChildren(snapshot.svg);
+      renderMinimap(snapshot.svg);
+    } else {
+      preview.replaceChildren(emptyPreview(snapshot.status === 'idle'));
+      previewMinimap.replaceChildren();
+    }
 
     diagnostics.replaceChildren();
     if (snapshot.status === 'error' && snapshot.message && snapshot.diagnostics.length === 0) {
@@ -641,6 +654,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     workspace.style.setProperty('--preview-width', `${layout.previewWidth}px`);
     listCollapseButton.setAttribute('aria-label', next.listCollapsed ? '展开图表列表' : '收起图表列表');
     listCollapseButton.innerHTML = icon(next.listCollapsed ? 'chevron-right' : 'chevron-left');
+    listRestoreButton.setAttribute('aria-expanded', String(!next.listCollapsed));
     if (activeViewport.mode === 'fit') refitActiveViewport();
     if (persist) options.persistLayoutPreferences?.(layoutPreferences);
   }
@@ -732,11 +746,16 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   function applyViewport(): void {
     previewStage.style.transform = viewportTransform(activeViewport);
     previewStage.dataset.viewportMode = activeViewport.mode;
+    updateMinimapViewport();
   }
 
   async function togglePreviewFullscreen(): Promise<void> {
     if (document.fullscreenElement === previewPanel) {
       await document.exitFullscreen?.();
+      return;
+    }
+    if (shell.dataset.previewMaximized === 'true') {
+      setPreviewMaximized(false);
       return;
     }
     try {
@@ -751,6 +770,52 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   function setPreviewMaximized(maximized: boolean): void {
     if (maximized) shell.dataset.previewMaximized = 'true';
     else delete shell.dataset.previewMaximized;
+    updatePreviewPresentationControl();
+  }
+
+  function updatePreviewPresentationControl(): void {
+    const fullscreen = document.fullscreenElement === previewPanel;
+    const maximized = shell.dataset.previewMaximized === 'true';
+    const label = fullscreen
+      ? '退出全屏预览'
+      : maximized
+        ? '退出最大化预览'
+        : '全屏预览';
+    previewFullscreenButton.setAttribute('aria-label', label);
+    previewFullscreenButton.title = label;
+  }
+
+  function renderMinimap(source: SVGSVGElement): void {
+    const content = previewContentSize();
+    const minimapSvg = source.cloneNode(true) as SVGSVGElement;
+    minimapSvg.removeAttribute('id');
+    minimapSvg.removeAttribute('width');
+    minimapSvg.removeAttribute('height');
+    if (!minimapSvg.hasAttribute('viewBox')) {
+      minimapSvg.setAttribute('viewBox', `0 0 ${content.width} ${content.height}`);
+    }
+    minimapSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    minimapSvg.setAttribute('focusable', 'false');
+    const viewport = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    viewport.dataset.previewMinimapViewport = '';
+    viewport.setAttribute('vector-effect', 'non-scaling-stroke');
+    minimapSvg.append(viewport);
+    previewMinimap.replaceChildren(minimapSvg);
+    updateMinimapViewport();
+  }
+
+  function updateMinimapViewport(): void {
+    const viewport = previewMinimap.querySelector<SVGRectElement>('[data-preview-minimap-viewport]');
+    if (!viewport) return;
+    const content = previewContentSize();
+    const container = previewContainerSize();
+    const scale = activeViewport.scale || 1;
+    const x = clamp(-activeViewport.offsetX / scale, 0, content.width);
+    const y = clamp(-activeViewport.offsetY / scale, 0, content.height);
+    viewport.setAttribute('x', String(x));
+    viewport.setAttribute('y', String(y));
+    viewport.setAttribute('width', String(Math.min(content.width - x, container.width / scale)));
+    viewport.setAttribute('height', String(Math.min(content.height - y, container.height / scale)));
   }
 
   function updateStyleOverride<K extends keyof DiagramStyleOverrides>(
@@ -825,6 +890,10 @@ function syncValue(input: HTMLTextAreaElement, value: string): void {
 function finiteAttribute(element: SVGSVGElement, name: 'width' | 'height'): number {
   const value = Number(element.getAttribute(name));
   return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(Math.max(value, minimum), maximum);
 }
 
 function diagramTypeLabel(source: string): string {

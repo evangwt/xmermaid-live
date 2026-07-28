@@ -7,6 +7,7 @@ import {
   viewportForDiagram,
   viewportTransform,
   zoomCanvasViewport,
+  zoomCanvasViewportAt,
 } from '../src/canvas-viewport';
 
 const content = { width: 800, height: 400 };
@@ -23,6 +24,19 @@ describe('canvas viewport', () => {
     const fit = fitCanvasViewport(content, container);
     expect(zoomCanvasViewport(fit, content, container, 99).scale).toBe(MAX_CANVAS_SCALE);
     expect(zoomCanvasViewport(fit, content, container, .01).scale).toBe(MIN_CANVAS_SCALE);
+  });
+
+  it('keeps the content below a pointer stable while zooming there', () => {
+    const fit = fitCanvasViewport(content, container);
+    const pointer = { x: 210, y: 150 };
+    const before = {
+      x: (pointer.x - fit.offsetX) / fit.scale,
+      y: (pointer.y - fit.offsetY) / fit.scale,
+    };
+    const zoomed = zoomCanvasViewportAt(fit, content, container, 1, pointer);
+
+    expect((pointer.x - zoomed.offsetX) / zoomed.scale).toBeCloseTo(before.x, 2);
+    expect((pointer.y - zoomed.offsetY) / zoomed.scale).toBeCloseTo(before.y, 2);
   });
 
   it('changes mode to manual and clamps pan so the content cannot disappear', () => {
