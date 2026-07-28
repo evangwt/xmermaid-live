@@ -441,30 +441,39 @@ describe('mountApp', () => {
     expect(exportButton.disabled).toBe(false);
   });
 
-  it('closes the style dialog with Escape semantics and returns focus to its opener', () => {
+  it('opens a non-modal desktop inspector without blocking editor focus', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    const editor = document.querySelector<HTMLTextAreaElement>('[data-document-input]')!;
+    const dialog = document.querySelector<HTMLDialogElement>('[data-style-dialog]')!;
+    document.querySelector<HTMLButtonElement>('[data-style-open]')!.click();
+
+    expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.inspectorOpen).toBe('true');
+    expect(dialog.open).toBe(false);
+    editor.focus();
+    expect(document.activeElement).toBe(editor);
+  });
+
+  it('keeps the style dialog modal on compact layouts and returns focus to its opener', () => {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() });
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
     const opener = document.querySelector<HTMLButtonElement>('[data-style-open]')!;
-    const dialog = document.querySelector<HTMLDialogElement>('[data-style-dialog]')!;
-    opener.focus();
     opener.click();
-    expect(dialog.open).toBe(true);
-
-    dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
-    dialog.close();
-    expect(dialog.open).toBe(false);
+    expect(document.querySelector<HTMLDialogElement>('[data-style-dialog]')?.open).toBe(true);
+    document.querySelector<HTMLButtonElement>('[data-style-close]')!.click();
     expect(document.activeElement).toBe(opener);
   });
 
   it('provides accessible names for every style control', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
     const dialog = document.querySelector<HTMLDialogElement>('[data-style-dialog]')!;
+    const content = document.querySelector<HTMLElement>('[data-style-content]')!;
     expect(dialog.getAttribute('aria-labelledby')).toBe('style-title');
-    expect(dialog.querySelector<HTMLButtonElement>('[data-style-close]')?.getAttribute('aria-label')).toBe('关闭图表样式');
-    expect(dialog.querySelectorAll<HTMLInputElement>('[data-style-color]')).toHaveLength(9);
-    expect(dialog.querySelectorAll<HTMLInputElement>('[data-style-number]')).toHaveLength(4);
-    expect(dialog.querySelectorAll<HTMLButtonElement>('[data-style-option]')).toHaveLength(3);
+    expect(content.querySelector<HTMLButtonElement>('[data-style-close]')?.getAttribute('aria-label')).toBe('关闭图表样式');
+    expect(content.querySelectorAll<HTMLInputElement>('[data-style-color]')).toHaveLength(9);
+    expect(content.querySelectorAll<HTMLInputElement>('[data-style-number]')).toHaveLength(4);
+    expect(content.querySelectorAll<HTMLButtonElement>('[data-style-option]')).toHaveLength(3);
 
-    for (const control of dialog.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')) {
+    for (const control of content.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')) {
       const label = control.labels?.[0] ?? control.closest('label');
       expect(label?.textContent?.trim(), control.outerHTML).not.toBe('');
     }

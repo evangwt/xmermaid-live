@@ -104,73 +104,11 @@ const SHELL = `
       <div class="workspace-divider" data-workspace-divider="editor" role="separator" aria-orientation="vertical" aria-label="调整编辑器与预览宽度" tabindex="0"></div>
       <section class="preview-panel" data-panel="preview" aria-label="实时预览">
         <div class="panel-heading"><h2>预览</h2><span data-preview-status></span><div class="preview-actions" role="group" aria-label="预览画布"><button type="button" class="quiet-icon-button" data-preview-zoom="out" aria-label="缩小预览" title="缩小预览">${icon('minus')}</button><button type="button" class="quiet-icon-button" data-preview-fit aria-label="适配预览" title="适配预览">${icon('fit')}</button><button type="button" class="quiet-icon-button" data-preview-zoom="in" aria-label="放大预览" title="放大预览">${icon('plus')}</button><button type="button" class="quiet-icon-button" data-preview-fullscreen aria-label="全屏预览" title="全屏预览">${icon('maximize')}</button><button type="button" class="quiet-icon-button" data-preview-maximize-exit aria-label="退出最大化预览" title="退出最大化预览">${icon('chevron-right')}</button></div></div>
-        <div class="preview-canvas" data-preview-canvas><div class="preview-stage" data-preview-stage data-viewport-mode="fit" data-preview></div></div>
+        <div class="preview-content-grid"><div class="preview-canvas" data-preview-canvas><div class="preview-stage" data-preview-stage data-viewport-mode="fit" data-preview></div></div><aside class="preview-inspector" data-style-desktop-host aria-label="图表样式"><div class="style-inspector-content" data-style-content><header class="style-inspector-header"><h2 id="style-title">图表样式</h2><button type="button" class="icon-button" data-style-close aria-label="关闭图表样式">×</button></header><div class="style-drawer-body" data-style-body><fieldset><legend>主题</legend><div class="theme-switch theme-switch-drawer" role="group" aria-label="图表基础主题"><button type="button" data-theme-option="dark" aria-pressed="true">深色</button><button type="button" data-theme-option="light" aria-pressed="false">浅色</button></div></fieldset><fieldset><legend>颜色</legend><div class="color-controls"><label class="style-control"><span>画布</span><input type="color" data-style-color="background"></label><label class="style-control"><span>节点</span><input type="color" data-style-color="nodeFill"></label><label class="style-control"><span>节点描边</span><input type="color" data-style-color="nodeStroke"></label><label class="style-control"><span>连线</span><input type="color" data-style-color="edgeStroke"></label><label class="style-control"><span>箭头颜色</span><input type="color" data-style-color="arrowFill"></label></div><details data-style-advanced-colors><summary>更多颜色</summary><div class="color-controls"><label class="style-control"><span>节点文字</span><input type="color" data-style-color="nodeText"></label><label class="style-control"><span>连线标签</span><input type="color" data-style-color="edgeLabel"></label><label class="style-control"><span>子图</span><input type="color" data-style-color="subgraphFill"></label><label class="style-control"><span>子图描边</span><input type="color" data-style-color="subgraphStroke"></label></div></details></fieldset><fieldset><legend>几何</legend><div class="style-control style-control-stack" data-style-row="curveStyle"><span>曲线</span><div class="segmented-control" role="group" aria-label="曲线样式"><button type="button" data-style-option="bezier" aria-pressed="true">贝塞尔</button><button type="button" data-style-option="step" aria-pressed="false">折线</button><button type="button" data-style-option="straight" aria-pressed="false">直线</button></div></div><label class="style-control" data-style-row="arrowStyle"><span>箭头类型</span><select data-style-select="arrowStyle"><option value="filled">实心</option><option value="triangle">三角</option><option value="open">开放</option><option value="circle">圆形</option><option value="cross">交叉</option></select></label><label class="style-control range-control" data-style-row="edgeGap"><span>箭头与节点间距</span><output data-style-output="edgeGap"></output><input type="range" min="0" max="24" step="1" aria-label="箭头与节点间距" data-style-number="edgeGap"></label><label class="style-control range-control" data-style-row="arrowSize"><span>箭头大小</span><output data-style-output="arrowSize"></output><input type="range" min="4" max="32" step="1" aria-label="箭头大小" data-style-number="arrowSize"></label><label class="style-control range-control" data-style-row="nodeBorderRadius"><span>节点圆角</span><output data-style-output="nodeBorderRadius"></output><input type="range" min="0" max="24" step="1" aria-label="节点圆角" data-style-number="nodeBorderRadius"></label></fieldset><details data-style-advanced-text><summary>文字与字体</summary><label class="style-control" data-style-row="fontFamily"><span>字体</span><select data-style-select="fontFamily"><option value="sans-serif">系统字体</option><option value="Inter, ui-sans-serif, system-ui, sans-serif">界面字体</option><option value="ui-monospace, SFMono-Regular, Consolas, monospace">等宽字体</option></select></label><label class="style-control range-control" data-style-row="fontSize"><span>字号</span><output data-style-output="fontSize"></output><input type="range" min="10" max="24" step="1" aria-label="字号" data-style-number="fontSize"></label></details></div><footer class="style-drawer-footer" data-style-footer><button type="button" data-style-reset>重置图表样式</button></footer></div></aside></div>
       </section>
     </div>
     <section class="diagnostics diagnostics-bar" data-diagnostics aria-live="polite" aria-atomic="true"></section>
-    <dialog class="style-drawer" data-style-dialog aria-labelledby="style-title">
-      <header class="style-drawer-header">
-        <h2 id="style-title">图表样式</h2>
-        <button type="button" class="icon-button" data-style-close aria-label="关闭图表样式">×</button>
-      </header>
-      <div class="style-drawer-body" data-style-body>
-        <fieldset>
-          <legend>主题</legend>
-          <div class="theme-switch theme-switch-drawer" role="group" aria-label="图表基础主题">
-            <button type="button" data-theme-option="dark" aria-pressed="true">深色</button>
-            <button type="button" data-theme-option="light" aria-pressed="false">浅色</button>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>颜色</legend>
-          <div class="color-controls">
-            <label class="style-control"><span>画布</span><input type="color" data-style-color="background"></label>
-            <label class="style-control"><span>节点</span><input type="color" data-style-color="nodeFill"></label>
-            <label class="style-control"><span>节点描边</span><input type="color" data-style-color="nodeStroke"></label>
-            <label class="style-control"><span>节点文字</span><input type="color" data-style-color="nodeText"></label>
-            <label class="style-control"><span>连线</span><input type="color" data-style-color="edgeStroke"></label>
-            <label class="style-control"><span>连线标签</span><input type="color" data-style-color="edgeLabel"></label>
-            <label class="style-control"><span>箭头颜色</span><input type="color" data-style-color="arrowFill"></label>
-            <label class="style-control"><span>子图</span><input type="color" data-style-color="subgraphFill"></label>
-            <label class="style-control"><span>子图描边</span><input type="color" data-style-color="subgraphStroke"></label>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>几何</legend>
-          <div class="style-control style-control-stack" data-style-row="curveStyle">
-            <span>曲线</span>
-            <div class="segmented-control" role="group" aria-label="曲线样式">
-              <button type="button" data-style-option="bezier" aria-pressed="true">贝塞尔</button>
-              <button type="button" data-style-option="step" aria-pressed="false">折线</button>
-              <button type="button" data-style-option="straight" aria-pressed="false">直线</button>
-            </div>
-          </div>
-          <label class="style-control" data-style-row="arrowStyle"><span>箭头类型</span>
-            <select data-style-select="arrowStyle">
-              <option value="filled">实心</option><option value="triangle">三角</option>
-              <option value="open">开放</option><option value="circle">圆形</option><option value="cross">交叉</option>
-            </select>
-          </label>
-          <label class="style-control range-control" data-style-row="edgeGap"><span>箭头与节点间距</span><output data-style-output="edgeGap"></output><input type="range" min="0" max="24" step="1" aria-label="箭头与节点间距" data-style-number="edgeGap"></label>
-          <label class="style-control range-control" data-style-row="arrowSize"><span>箭头大小</span><output data-style-output="arrowSize"></output><input type="range" min="4" max="32" step="1" aria-label="箭头大小" data-style-number="arrowSize"></label>
-          <label class="style-control range-control" data-style-row="nodeBorderRadius"><span>节点圆角</span><output data-style-output="nodeBorderRadius"></output><input type="range" min="0" max="24" step="1" aria-label="节点圆角" data-style-number="nodeBorderRadius"></label>
-        </fieldset>
-        <fieldset>
-          <legend>文字</legend>
-          <label class="style-control" data-style-row="fontFamily"><span>字体</span>
-            <select data-style-select="fontFamily">
-              <option value="sans-serif">系统字体</option>
-              <option value="Inter, ui-sans-serif, system-ui, sans-serif">界面字体</option>
-              <option value="ui-monospace, SFMono-Regular, Consolas, monospace">等宽字体</option>
-            </select>
-          </label>
-          <label class="style-control range-control" data-style-row="fontSize"><span>字号</span><output data-style-output="fontSize"></output><input type="range" min="10" max="24" step="1" aria-label="字号" data-style-number="fontSize"></label>
-        </fieldset>
-      </div>
-      <footer class="style-drawer-footer" data-style-footer>
-        <button type="button" data-style-reset>重置图表样式</button>
-      </footer>
-    </dialog>
+    <dialog class="style-drawer" data-style-dialog aria-labelledby="style-title"><div data-style-mobile-host></div></dialog>
   </div>`;
 
 const MAX_SHARE_HASH_LENGTH = 50_000;
@@ -197,6 +135,12 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   const styleOpenButton = required<HTMLButtonElement>(root, '[data-style-open]');
   const styleCloseButton = required<HTMLButtonElement>(root, '[data-style-close]');
   const styleDialog = required<HTMLDialogElement>(root, '[data-style-dialog]');
+  const styleContent = required<HTMLElement>(root, '[data-style-content]');
+  const styleDesktopHost = required<HTMLElement>(root, '[data-style-desktop-host]');
+  const styleMobileHost = required<HTMLElement>(root, '[data-style-mobile-host]');
+  const compactMediaQuery = typeof window.matchMedia === 'function'
+    ? window.matchMedia(COMPACT_LAYOUT_QUERY)
+    : null;
   const styleResetButton = required<HTMLButtonElement>(root, '[data-style-reset]');
   const listCollapseButton = required<HTMLButtonElement>(root, '[data-list-collapse]');
   const previewFitButton = required<HTMLButtonElement>(root, '[data-preview-fit]');
@@ -248,9 +192,15 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   });
   exportSvgButton.addEventListener('click', () => void exportCurrent('svg'));
   exportPngButton.addEventListener('click', () => void exportCurrent('png'));
-  styleOpenButton.addEventListener('click', () => styleDialog.showModal());
-  styleCloseButton.addEventListener('click', () => styleDialog.close());
-  styleDialog.addEventListener('close', () => styleOpenButton.focus());
+  styleOpenButton.addEventListener('click', openStyleInspector);
+  styleCloseButton.addEventListener('click', closeStyleInspector);
+  styleDialog.addEventListener('close', () => {
+    placeStyleContent(styleDesktopHost);
+    styleOpenButton.focus();
+  });
+  styleContent.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !isCompactLayout()) closeStyleInspector();
+  });
   styleResetButton.addEventListener('click', () => {
     applyThemePreferences({ ...preferences, overrides: {} });
   });
@@ -324,6 +274,20 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     previewFullscreenButton.setAttribute('aria-label', fullscreen ? '退出全屏预览' : '全屏预览');
     previewFullscreenButton.title = fullscreen ? '退出全屏预览' : '全屏预览';
   };
+  const handleCompactLayoutChange = (event: MediaQueryListEvent) => {
+    const inspectorOpen = styleDialog.open || shell.dataset.inspectorOpen === 'true';
+    if (!inspectorOpen) return;
+    if (event.matches) {
+      delete shell.dataset.inspectorOpen;
+      placeStyleContent(styleMobileHost);
+      styleDialog.showModal();
+      return;
+    }
+    if (styleDialog.open) styleDialog.close();
+    placeStyleContent(styleDesktopHost);
+    shell.dataset.inspectorOpen = 'true';
+    refitActiveViewport();
+  };
   if (typeof ResizeObserver === 'function') {
     resizeObserver = new ResizeObserver(handleWindowResize);
     resizeObserver.observe(previewCanvas);
@@ -331,6 +295,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     window.addEventListener('resize', handleWindowResize);
   }
   document.addEventListener('fullscreenchange', handleFullscreenChange);
+  compactMediaQuery?.addEventListener?.('change', handleCompactLayoutChange);
 
   for (const button of root.querySelectorAll<HTMLButtonElement>('[data-theme-option]')) {
     button.addEventListener('click', () => {
@@ -591,6 +556,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       resizeObserver?.disconnect();
       window.removeEventListener('resize', handleWindowResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      compactMediaQuery?.removeEventListener?.('change', handleCompactLayoutChange);
       for (const frame of animationFrames) window.cancelAnimationFrame(frame);
       if (panningPointerId !== null && previewCanvas.hasPointerCapture(panningPointerId)) previewCanvas.releasePointerCapture(panningPointerId);
       runtime.dispose();
@@ -605,6 +571,35 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     renderThemeControls();
     options.persistThemePreferences?.(cloneThemePreferences(preferences));
     runtime.request(selectedDiagram(state)?.source ?? null, effectiveTheme);
+  }
+
+  function isCompactLayout(): boolean {
+    return compactMediaQuery?.matches ?? false;
+  }
+
+  function openStyleInspector(): void {
+    if (isCompactLayout()) {
+      placeStyleContent(styleMobileHost);
+      styleDialog.showModal();
+      return;
+    }
+    placeStyleContent(styleDesktopHost);
+    shell.dataset.inspectorOpen = 'true';
+    refitActiveViewport();
+  }
+
+  function closeStyleInspector(): void {
+    if (styleDialog.open) {
+      styleDialog.close();
+      return;
+    }
+    delete shell.dataset.inspectorOpen;
+    refitActiveViewport();
+    styleOpenButton.focus();
+  }
+
+  function placeStyleContent(host: HTMLElement): void {
+    if (styleContent.parentElement !== host) host.append(styleContent);
   }
 
   function applyLayoutPreferences(next: WorkspaceLayoutPreferences, persist = false): void {
