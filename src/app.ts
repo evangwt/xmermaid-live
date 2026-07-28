@@ -66,7 +66,7 @@ const SHELL = `
           <button type="button" data-theme-option="light" aria-pressed="false">浅色</button>
         </div>
         <button type="button" class="compact-theme-button quiet-icon-button" data-mobile-theme aria-label="切换工作台主题" title="切换工作台主题">${icon('palette')}</button>
-        <button type="button" class="style-open-button" data-style-open aria-haspopup="dialog">${icon('palette')}<span class="toolbar-label">图表样式</span></button>
+        <button type="button" class="style-open-button" data-style-open aria-haspopup="dialog">${icon('sliders')}<span class="toolbar-label">图表样式</span></button>
         <button type="button" data-share>分享</button>
         <details class="export-menu">
           <summary>导出</summary>

@@ -1,4 +1,4 @@
-export type IconName = 'chevron-left' | 'chevron-right' | 'minus' | 'plus' | 'fit' | 'maximize' | 'more' | 'diagram' | 'edit' | 'preview' | 'share' | 'download' | 'palette';
+export type IconName = 'chevron-left' | 'chevron-right' | 'minus' | 'plus' | 'fit' | 'maximize' | 'more' | 'diagram' | 'edit' | 'preview' | 'share' | 'download' | 'palette' | 'sliders';
 
 const PATHS: Record<IconName, string> = {
   'chevron-left': '<path d="m14 6-6 6 6 6"/>',
@@ -14,6 +14,7 @@ const PATHS: Record<IconName, string> = {
   share: '<path d="M15 5h4v4M19 5l-7 7"/><path d="M17 12v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>',
   download: '<path d="M12 4v10M8 10l4 4 4-4M5 20h14"/>',
   palette: '<path d="M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 0-4h-1a2 2 0 0 1 0-4 9 9 0 0 0 0-10z"/><circle cx="8" cy="10" r="1"/><circle cx="12" cy="7" r="1"/><circle cx="16" cy="10" r="1"/>',
+  sliders: '<path d="M4 7h16M4 17h16"/><path d="M8 4v6M16 14v6"/>',
 };
 
 export function icon(name: IconName): string {
