@@ -613,6 +613,21 @@ test('@cross-browser renders partial Pie slices and keeps its capability boundar
   await expect(preview).toContainText('Failed');
 });
 
+test('@cross-browser renders native partial XY chart bars and lines', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nxychart-beta\n  title "Quarterly revenue"\n  x-axis [Q1, Q2]\n  y-axis "Revenue" 0 --> 100\n  bar [20, 40]\n  line [30, 50]\n```');
+  const item = page.locator('[data-diagram-item]');
+  const preview = page.locator('[data-preview]');
+
+  await expect(item).toHaveAttribute('data-diagram-type', 'xychart');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expect(preview.locator('.xychart-axis')).toHaveCount(2);
+  await expect(preview.locator('.xychart-bar')).toHaveCount(2);
+  await expect(preview.locator('.xychart-line')).toBeVisible();
+  await expect(preview.locator('.node')).toHaveCount(0);
+});
+
 test('@cross-browser renders partial User Journey tasks and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\njourney\n  title Checkout\n  section Explore\n    Find product: 5: Buyer\n  section Purchase\n    Pay securely: 4: Buyer, Store\n```');
