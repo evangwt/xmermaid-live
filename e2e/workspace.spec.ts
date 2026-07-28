@@ -600,6 +600,19 @@ test('@cross-browser renders the partial Gantt subset and keeps its capability b
   await expect(preview).toContainText('Compile');
 });
 
+test('@cross-browser renders partial Pie slices and keeps its capability boundary visible', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\npie title Deployment\n  "Passed" : 80\n  "Failed" : 20\n```');
+  const item = page.locator('[data-diagram-item]');
+  await expect(item).toHaveAttribute('data-diagram-type', 'pie');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const preview = page.locator('[data-preview] svg');
+  await expect(preview).toContainText('Passed');
+  await expect(preview).toContainText('Failed');
+});
+
 test('switches to exactly one panel and preserves focus at a phone viewport', async ({ page }) => {
   const expectPrivateRequests = monitorPrivacy(page);
 
