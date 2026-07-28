@@ -536,7 +536,7 @@ describe('mountApp', () => {
   it('applies distinct semantic workbench themes without changing panel geometry', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
     const shell = document.querySelector<HTMLElement>('.app-shell')!;
-    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#0b1117');
+    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#091017');
 
     document.querySelector<HTMLButtonElement>('[data-theme-option="light"]')!.click();
     expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#f4f7f8');
