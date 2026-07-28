@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "xmermaid": "file:vendor/xmermaid-0.1.0-c4.tgz"
+    "xmermaid": "file:vendor/xmermaid-0.1.0-zenuml.tgz"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",

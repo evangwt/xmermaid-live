@@ -692,6 +692,19 @@ test('@cross-browser renders partial C4 system landscapes and relationships', as
   await expect(preview).toContainText('Sends mail');
 });
 
+test('@cross-browser renders partial ZenUML calls and returns with distinct edge semantics', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nzenuml\n  Alice->Bob: Authenticate\n  Bob-->Alice: Token\n```');
+  const item = page.locator('[data-diagram-item]');
+  const preview = page.locator('[data-preview]');
+
+  await expect(item).toHaveAttribute('data-diagram-type', 'zenuml');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(preview).toContainText('Authenticate');
+  await expect(preview).toContainText('Token');
+  await expect(preview.locator('.edge path').nth(1)).toHaveAttribute('stroke-dasharray', '5,5');
+});
+
 test('switches to exactly one panel and preserves focus at a phone viewport', async ({ page }) => {
   const expectPrivateRequests = monitorPrivacy(page);
 
