@@ -20,6 +20,15 @@ import {
 } from './layout-preferences';
 import { icon } from './icons';
 import {
+  fitCanvasViewport,
+  panCanvasViewport,
+  viewportForDiagram,
+  viewportTransform,
+  zoomCanvasViewport,
+  type CanvasSize,
+  type CanvasViewport,
+} from './canvas-viewport';
+import {
   DEFAULT_THEME_PREFERENCES,
   THEME_FONT_FAMILIES,
   resolveDiagramTheme,
@@ -94,8 +103,8 @@ const SHELL = `
       </section>
       <div class="workspace-divider" data-workspace-divider="editor" role="separator" aria-orientation="vertical" aria-label="调整编辑器与预览宽度" tabindex="0"></div>
       <section class="preview-panel" data-panel="preview" aria-label="实时预览">
-        <div class="panel-heading"><h2>预览</h2><span data-preview-status></span></div>
-        <div class="preview-canvas" data-preview></div>
+        <div class="panel-heading"><h2>预览</h2><span data-preview-status></span><div class="preview-actions" role="group" aria-label="预览画布"><button type="button" class="quiet-icon-button" data-preview-zoom="out" aria-label="缩小预览" title="缩小预览">${icon('minus')}</button><button type="button" class="quiet-icon-button" data-preview-fit aria-label="适配预览" title="适配预览">${icon('fit')}</button><button type="button" class="quiet-icon-button" data-preview-zoom="in" aria-label="放大预览" title="放大预览">${icon('plus')}</button><button type="button" class="quiet-icon-button" data-preview-fullscreen aria-label="全屏预览" title="全屏预览">${icon('maximize')}</button><button type="button" class="quiet-icon-button" data-preview-maximize-exit aria-label="退出最大化预览" title="退出最大化预览">${icon('chevron-right')}</button></div></div>
+        <div class="preview-canvas" data-preview-canvas><div class="preview-stage" data-preview-stage data-viewport-mode="fit" data-preview></div></div>
       </section>
     </div>
     <section class="diagnostics diagnostics-bar" data-diagnostics aria-live="polite" aria-atomic="true"></section>
@@ -176,6 +185,9 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   const documentInput = required<HTMLTextAreaElement>(root, '[data-document-input]');
   const diagramInput = required<HTMLTextAreaElement>(root, '[data-diagram-input]');
   const preview = required<HTMLElement>(root, '[data-preview]');
+  const previewCanvas = required<HTMLElement>(root, '[data-preview-canvas]');
+  const previewStage = required<HTMLElement>(root, '[data-preview-stage]');
+  const previewPanel = required<HTMLElement>(root, '[data-panel="preview"]');
   const previewStatus = required<HTMLElement>(root, '[data-preview-status]');
   const diagnostics = required<HTMLElement>(root, '[data-diagnostics]');
   const actionStatus = required<HTMLElement>(root, '[data-action-status]');
@@ -187,6 +199,9 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   const styleDialog = required<HTMLDialogElement>(root, '[data-style-dialog]');
   const styleResetButton = required<HTMLButtonElement>(root, '[data-style-reset]');
   const listCollapseButton = required<HTMLButtonElement>(root, '[data-list-collapse]');
+  const previewFitButton = required<HTMLButtonElement>(root, '[data-preview-fit]');
+  const previewFullscreenButton = required<HTMLButtonElement>(root, '[data-preview-fullscreen]');
+  const previewMaximizeExitButton = required<HTMLButtonElement>(root, '[data-preview-maximize-exit]');
   const exporter = options.exporter ?? exportDiagram;
   const saveBlob = options.saveBlob ?? downloadBlob;
   let state = createWorkspaceDocument(options.initialText, options.initialSelectedIndex ?? 0);
@@ -196,6 +211,12 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   let preferences = cloneThemePreferences(options.initialThemePreferences ?? DEFAULT_THEME_PREFERENCES);
   let effectiveTheme = resolveDiagramTheme(preferences);
   let layoutPreferences = options.initialLayoutPreferences ?? DEFAULT_LAYOUT_PREFERENCES;
+  const viewportCache = new Map<string, CanvasViewport>();
+  const animationFrames = new Set<number>();
+  let activeViewport: CanvasViewport = { mode: 'fit', scale: 1, offsetX: 0, offsetY: 0 };
+  let resizeObserver: ResizeObserver | null = null;
+  let panningPointerId: number | null = null;
+  let panningPosition: { x: number; y: number } | null = null;
   shell.dataset.workspaceTheme = preferences.workspace;
 
   const runtime = new PreviewRuntime(
@@ -242,6 +263,74 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     if (kind !== 'list' && kind !== 'editor') continue;
     bindWorkspaceDivider(divider, kind);
   }
+
+  for (const button of root.querySelectorAll<HTMLButtonElement>('[data-preview-zoom]')) {
+    button.addEventListener('click', () => {
+      setActiveViewport(zoomCanvasViewport(
+        activeViewport,
+        previewContentSize(),
+        previewContainerSize(),
+        activeViewport.scale * (button.dataset.previewZoom === 'out' ? 1 / 1.2 : 1.2),
+      ));
+    });
+  }
+  previewFitButton.addEventListener('click', refitActiveViewport);
+  previewFullscreenButton.addEventListener('click', () => void togglePreviewFullscreen());
+  previewMaximizeExitButton.addEventListener('click', () => setPreviewMaximized(false));
+  previewCanvas.addEventListener('wheel', event => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    const multiplier = event.deltaY < 0 ? 1.2 : 1 / 1.2;
+    setActiveViewport(zoomCanvasViewport(
+      activeViewport,
+      previewContentSize(),
+      previewContainerSize(),
+      activeViewport.scale * multiplier,
+    ));
+  }, { passive: false });
+  previewCanvas.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || (event.target instanceof Element && event.target.closest('button'))) return;
+    panningPointerId = event.pointerId;
+    panningPosition = { x: event.clientX, y: event.clientY };
+    previewCanvas.setPointerCapture(event.pointerId);
+    previewCanvas.dataset.panning = 'true';
+  });
+  previewCanvas.addEventListener('pointermove', event => {
+    if (panningPointerId !== event.pointerId || !panningPosition) return;
+    setActiveViewport(panCanvasViewport(
+      activeViewport,
+      previewContentSize(),
+      previewContainerSize(),
+      event.clientX - panningPosition.x,
+      event.clientY - panningPosition.y,
+    ));
+    panningPosition = { x: event.clientX, y: event.clientY };
+  });
+  const endPan = (event: PointerEvent) => {
+    if (panningPointerId !== event.pointerId) return;
+    if (previewCanvas.hasPointerCapture(event.pointerId)) previewCanvas.releasePointerCapture(event.pointerId);
+    panningPointerId = null;
+    panningPosition = null;
+    delete previewCanvas.dataset.panning;
+  };
+  previewCanvas.addEventListener('pointerup', endPan);
+  previewCanvas.addEventListener('pointercancel', endPan);
+
+  const handleWindowResize = () => {
+    if (activeViewport.mode === 'fit') refitActiveViewport();
+  };
+  const handleFullscreenChange = () => {
+    const fullscreen = document.fullscreenElement === previewPanel;
+    previewFullscreenButton.setAttribute('aria-label', fullscreen ? '退出全屏预览' : '全屏预览');
+    previewFullscreenButton.title = fullscreen ? '退出全屏预览' : '全屏预览';
+  };
+  if (typeof ResizeObserver === 'function') {
+    resizeObserver = new ResizeObserver(handleWindowResize);
+    resizeObserver.observe(previewCanvas);
+  } else {
+    window.addEventListener('resize', handleWindowResize);
+  }
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
 
   for (const button of root.querySelectorAll<HTMLButtonElement>('[data-theme-option]')) {
     button.addEventListener('click', () => {
@@ -445,6 +534,11 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     );
     exportSvgButton.disabled = !canExport;
     exportPngButton.disabled = !canExport;
+    if (snapshot.svg) {
+      const current = selectedDiagram(state);
+      activeViewport = viewportForDiagram(viewportCache, current?.id ?? null, previewContentSize(), previewContainerSize());
+      applyViewport();
+    }
   }
 
   async function exportCurrent(format: 'svg' | 'png'): Promise<void> {
@@ -494,6 +588,11 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
 
   return {
     destroy() {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', handleWindowResize);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      for (const frame of animationFrames) window.cancelAnimationFrame(frame);
+      if (panningPointerId !== null && previewCanvas.hasPointerCapture(panningPointerId)) previewCanvas.releasePointerCapture(panningPointerId);
       runtime.dispose();
       root.replaceChildren();
     },
@@ -517,22 +616,25 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     workspace.style.setProperty('--preview-width', `${layout.previewWidth}px`);
     listCollapseButton.setAttribute('aria-label', next.listCollapsed ? '展开图表列表' : '收起图表列表');
     listCollapseButton.innerHTML = icon(next.listCollapsed ? 'chevron-right' : 'chevron-left');
+    if (activeViewport.mode === 'fit') refitActiveViewport();
     if (persist) options.persistLayoutPreferences?.(layoutPreferences);
   }
 
   function bindWorkspaceDivider(divider: HTMLElement, kind: WorkspaceDivider): void {
     let drag: { pointerId: number; startX: number; start: WorkspaceLayoutPreferences; next: WorkspaceLayoutPreferences } | null = null;
-    let frame = 0;
+    let frame: number | null = null;
 
     const applyDrag = () => {
-      frame = 0;
+      if (frame !== null) animationFrames.delete(frame);
+      frame = null;
       if (drag) applyLayoutPreferences(drag.next);
     };
     const endDrag = (event: PointerEvent) => {
       if (!drag || event.pointerId !== drag.pointerId) return;
-      if (frame) {
+      if (frame !== null) {
         window.cancelAnimationFrame(frame);
-        frame = 0;
+        animationFrames.delete(frame);
+        frame = null;
       }
       const next = drag.next;
       if (divider.hasPointerCapture(event.pointerId)) divider.releasePointerCapture(event.pointerId);
@@ -549,7 +651,10 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     divider.addEventListener('pointermove', event => {
       if (!drag || event.pointerId !== drag.pointerId) return;
       drag.next = adjustWorkspaceDivider(drag.start, kind, event.clientX - drag.startX, workspace.getBoundingClientRect().width);
-      if (!frame) frame = window.requestAnimationFrame(applyDrag);
+      if (frame === null) {
+        frame = window.requestAnimationFrame(applyDrag);
+        animationFrames.add(frame);
+      }
     });
     divider.addEventListener('pointerup', endDrag);
     divider.addEventListener('pointercancel', endDrag);
@@ -569,6 +674,58 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
         applyLayoutPreferences(DEFAULT_LAYOUT_PREFERENCES, true);
       }
     });
+  }
+
+  function previewContentSize(): CanvasSize {
+    const svg = preview.querySelector<SVGSVGElement>('svg');
+    if (!svg) return { width: 1, height: 1 };
+    const viewBox = svg.viewBox?.baseVal;
+    const width = viewBox?.width || finiteAttribute(svg, 'width') || 1;
+    const height = viewBox?.height || finiteAttribute(svg, 'height') || 1;
+    return { width, height };
+  }
+
+  function previewContainerSize(): CanvasSize {
+    const bounds = previewCanvas.getBoundingClientRect();
+    return { width: bounds.width || 1, height: bounds.height || 1 };
+  }
+
+  function setActiveViewport(next: CanvasViewport): void {
+    activeViewport = next;
+    const current = selectedDiagram(state);
+    if (next.mode === 'manual' && current) viewportCache.set(current.id, next);
+    applyViewport();
+  }
+
+  function refitActiveViewport(): void {
+    const current = selectedDiagram(state);
+    if (current) viewportCache.delete(current.id);
+    activeViewport = fitCanvasViewport(previewContentSize(), previewContainerSize());
+    applyViewport();
+  }
+
+  function applyViewport(): void {
+    previewStage.style.transform = viewportTransform(activeViewport);
+    previewStage.dataset.viewportMode = activeViewport.mode;
+  }
+
+  async function togglePreviewFullscreen(): Promise<void> {
+    if (document.fullscreenElement === previewPanel) {
+      await document.exitFullscreen?.();
+      return;
+    }
+    try {
+      if (typeof previewPanel.requestFullscreen !== 'function') throw new Error('Fullscreen unavailable');
+      await previewPanel.requestFullscreen();
+    } catch {
+      setPreviewMaximized(true);
+      actionStatus.textContent = '浏览器未进入全屏，已切换到应用内最大化预览。';
+    }
+  }
+
+  function setPreviewMaximized(maximized: boolean): void {
+    if (maximized) shell.dataset.previewMaximized = 'true';
+    else delete shell.dataset.previewMaximized;
   }
 
   function updateStyleOverride<K extends keyof DiagramStyleOverrides>(
@@ -638,6 +795,11 @@ function required<T extends Element>(root: ParentNode, selector: string): T {
 
 function syncValue(input: HTMLTextAreaElement, value: string): void {
   if (input.value !== value) input.value = value;
+}
+
+function finiteAttribute(element: SVGSVGElement, name: 'width' | 'height'): number {
+  const value = Number(element.getAttribute(name));
+  return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
 function diagramTypeLabel(source: string): string {

@@ -218,17 +218,30 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 }
 
 .preview-panel { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
+.preview-actions { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
+[data-preview-maximize-exit] { display: none; }
 .preview-canvas {
+  position: relative;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+  touch-action: pan-x pan-y;
   border: 1px solid var(--border);
   border-radius: 4px;
   background-color: var(--surface-canvas);
   background-image: radial-gradient(circle, var(--dot) 1px, transparent 1px);
   background-size: 16px 16px;
-  padding: 10px;
+  padding: 0;
 }
-.preview-canvas svg { display: block; width: auto; height: auto; max-width: 100%; max-height: none; margin-inline: auto; }
+.preview-stage { position: absolute; inset: 0 auto auto 0; transform-origin: 0 0; will-change: transform; }
+.preview-canvas[data-panning="true"] { cursor: grabbing; }
+.preview-canvas:has(.preview-stage svg) { cursor: grab; }
+.preview-stage svg { display: block; width: auto; height: auto; max-width: none; max-height: none; }
+.app-shell[data-preview-maximized="true"] .diagram-panel,
+.app-shell[data-preview-maximized="true"] .editor-panel,
+.app-shell[data-preview-maximized="true"] .workspace-divider { display: none; }
+.app-shell[data-preview-maximized="true"] .workspace { grid-template-columns: minmax(0, 1fr); }
+.app-shell[data-preview-maximized="true"] .preview-panel { grid-column: 1; }
+.app-shell[data-preview-maximized="true"] [data-preview-maximize-exit] { display: inline-grid; }
 
 .diagnostics-bar {
   min-width: 0;
