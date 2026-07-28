@@ -86,6 +86,40 @@ describe('mountApp', () => {
     expect(document.querySelectorAll('[data-diagram-item]')).toHaveLength(2);
   });
 
+  it('keeps planned diagrams visible with a capability recovery action', () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    mounted = mountApp(root(), {
+      initialText: '```mermaid\nsequenceDiagram\n  A->>B: Hello\n```',
+      renderer,
+    });
+
+    const item = document.querySelector<HTMLButtonElement>('[data-diagram-item]')!;
+    expect(item.dataset.diagramType).toBe('sequence');
+    expect(item.dataset.diagramStatus).toBe('planned');
+    expect(item.textContent).toContain('计划中');
+    expect(document.querySelector('[data-capability-recovery]')).not.toBeNull();
+    document.querySelector<HTMLButtonElement>('[data-copy-repro]')!.click();
+    expect(writeText).toHaveBeenCalledWith('sequenceDiagram\n  A->>B: Hello');
+  });
+
+  it('keeps the last valid SVG while a planned diagram reports its recovery state', async () => {
+    vi.useFakeTimers();
+    const stagedRenderer: PreviewRenderer = async source => {
+      if (source.startsWith('sequenceDiagram')) throw new Error('Unsupported diagram type: sequence');
+      return previewResult(source);
+    };
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer: stagedRenderer, renderDelayMs: 0 });
+    await vi.runAllTimersAsync();
+    const firstSvg = document.querySelector<SVGSVGElement>('[data-preview] svg')!;
+    document.querySelector<HTMLTextAreaElement>('[data-document-input]')!.value = '```mermaid\nsequenceDiagram\n  A->>B: Hello\n```';
+    document.querySelector<HTMLTextAreaElement>('[data-document-input]')!.dispatchEvent(new Event('input', { bubbles: true }));
+    await vi.runAllTimersAsync();
+
+    expect(document.querySelector('[data-preview] svg')).toBe(firstSvg);
+    expect(document.querySelector('[data-capability-recovery]')?.textContent).toContain('计划中');
+  });
+
   it('writes focused source edits back into the complete document', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
     document.querySelectorAll<HTMLButtonElement>('[data-diagram-item]')[1].click();

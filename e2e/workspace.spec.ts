@@ -552,6 +552,23 @@ test('reports an invalid flowchart without replacing the last successful SVG', a
   expectPrivateRequests();
 });
 
+test('keeps planned Mermaid families visible with a recovery path', async ({ page }) => {
+  await page.goto('./');
+  const documentInput = page.getByRole('textbox', { name: '完整文本' });
+  await documentInput.fill('flowchart TD\n  Start --> End');
+  await expect(page.locator('[data-preview] svg')).toBeVisible();
+  const previousSvg = await page.locator('[data-preview] svg').evaluate(svg => svg.outerHTML);
+
+  await documentInput.fill('```mermaid\nsequenceDiagram\n  A->>B: Hello\n```');
+  const item = page.locator('[data-diagram-item]');
+  await expect(item).toHaveCount(1);
+  await expect(item).toHaveAttribute('data-diagram-type', 'sequence');
+  await expect(item).toHaveAttribute('data-diagram-status', 'planned');
+  await expect(page.locator('[data-capability-recovery]')).toContainText('计划中');
+  await expect(page.getByRole('button', { name: '复制复现源码' })).toBeVisible();
+  await expect(page.locator('[data-preview] svg')).toHaveJSProperty('outerHTML', previousSvg);
+});
+
 test('switches to exactly one panel and preserves focus at a phone viewport', async ({ page }) => {
   const expectPrivateRequests = monitorPrivacy(page);
 

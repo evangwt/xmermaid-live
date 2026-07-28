@@ -1,5 +1,5 @@
 import { encodeShareState, exportDiagram, type ExportRequest } from 'xmermaid/editor';
-import type { ArrowStyle, CurveStyle, SourceRange, ThemeColors } from 'xmermaid';
+import { analyzeSupport, type ArrowStyle, type CurveStyle, type SourceRange, type ThemeColors } from 'xmermaid';
 import type { PreviewRenderer, PreviewSnapshot } from './preview-runtime';
 import { PreviewRuntime } from './preview-runtime';
 import { createRenderSource } from './render-source';
@@ -376,8 +376,15 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     renderDocument();
   });
   list.addEventListener('click', event => {
-    const button = event.target instanceof Element
-      ? event.target.closest<HTMLButtonElement>('[data-diagram-item]')
+    const target = event.target instanceof Element ? event.target : null;
+    const copyButton = target?.closest<HTMLButtonElement>('[data-copy-repro]');
+    if (copyButton) {
+      const index = Number(copyButton.dataset.diagramIndex);
+      if (Number.isInteger(index)) void copyRepro(index);
+      return;
+    }
+    const button = target
+      ? target.closest<HTMLButtonElement>('[data-diagram-item]')
       : null;
     const index = Number(button?.dataset.diagramIndex);
     if (!Number.isInteger(index)) return;
@@ -389,6 +396,13 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     if (typeof window.matchMedia === 'function' && window.matchMedia(COMPACT_LAYOUT_QUERY).matches) {
       diagramInput.focus();
     }
+  });
+  diagnostics.addEventListener('click', event => {
+    const button = event.target instanceof Element
+      ? event.target.closest<HTMLButtonElement>('[data-copy-repro]')
+      : null;
+    const index = Number(button?.dataset.diagramIndex);
+    if (Number.isInteger(index)) void copyRepro(index);
   });
 
   for (const tab of root.querySelectorAll<HTMLButtonElement>('[data-editor-tab]')) {
@@ -436,7 +450,8 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
 
   function renderList(): void {
     const signature = JSON.stringify(state.document.diagrams.map(diagram => [
-      diagramTypeLabel(diagram.source),
+      diagram.diagramType,
+      analyzeSupport(diagram.source).status,
       diagram.range.startLine,
     ]));
     if (signature === renderedListSignature) {
@@ -450,7 +465,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     if (state.document.diagrams.length === 0) {
       const empty = document.createElement('p');
       empty.dataset.emptyList = '';
-      empty.textContent = '没有找到图表。请粘贴 ```mermaid fenced block 或一张裸 flowchart。';
+      empty.textContent = '没有找到图表。请粘贴 ```mermaid / ```xmermaid 代码块或一张完整 Mermaid 图表。';
       list.append(empty);
       return;
     }
@@ -460,12 +475,15 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       button.type = 'button';
       button.dataset.diagramItem = '';
       button.dataset.diagramIndex = String(index);
+      button.dataset.diagramType = diagram.diagramType;
+      const capability = analyzeSupport(diagram.source);
+      button.dataset.diagramStatus = capability.status;
       button.className = 'diagram-item';
       button.setAttribute('aria-current', index === state.selectedIndex ? 'true' : 'false');
       const title = document.createElement('strong');
       title.textContent = `图表 ${index + 1}`;
       const meta = document.createElement('span');
-      meta.textContent = `${diagramTypeLabel(diagram.source)} · 第 ${diagram.range.startLine} 行`;
+      meta.textContent = `${diagramTypeLabel(diagram.diagramType, diagram.source)} · ${diagramStatusLabel(capability.status)} · 第 ${diagram.range.startLine} 行`;
       button.append(title, meta);
       fragment.append(button);
     });
@@ -515,6 +533,11 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     }
 
     diagnostics.replaceChildren();
+    const current = selectedDiagram(state);
+    if (current) {
+      const recovery = capabilityRecovery(current);
+      if (recovery) diagnostics.append(recovery);
+    }
     if (snapshot.status === 'error' && snapshot.message && snapshot.diagnostics.length === 0) {
       diagnostics.append(diagnosticItem('render_error', snapshot.message));
     }
@@ -525,7 +548,6 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       diagnostics.append(diagnosticItem('ok', '没有诊断。'));
     }
 
-    const current = selectedDiagram(state);
     const canExport = Boolean(
       current
       && snapshot.exportable
@@ -583,6 +605,17 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       actionStatus.textContent = `${format.toUpperCase()} 已下载。`;
     } catch (error) {
       actionStatus.textContent = `导出失败：${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+
+  async function copyRepro(index: number): Promise<void> {
+    const source = state.document.diagrams[index]?.source;
+    if (!source) return;
+    try {
+      await navigator.clipboard?.writeText(source);
+      actionStatus.textContent = '图表源码已复制，可用于复现问题。';
+    } catch {
+      actionStatus.textContent = '复制失败，请从当前图表编辑器复制源码。';
     }
   }
 
@@ -896,8 +929,37 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-function diagramTypeLabel(source: string): string {
-  return source.trim().split(/\s+/, 1)[0] || 'unknown';
+function diagramTypeLabel(diagramType: string, source?: string): string {
+  if (diagramType !== 'unknown') return diagramType;
+  return source?.trim().split(/\s+/, 1)[0] || '未知图表';
+}
+
+function diagramStatusLabel(status: ReturnType<typeof analyzeSupport>['status']): string {
+  if (status === 'supported') return '已支持';
+  if (status === 'partial') return '部分支持';
+  if (status === 'planned') return '计划中';
+  return '未识别';
+}
+
+function capabilityRecovery(diagram: ReturnType<typeof selectedDiagram>): HTMLElement | null {
+  if (!diagram) return null;
+  const capability = analyzeSupport(diagram.source);
+  if (capability.status === 'supported') return null;
+
+  const recovery = document.createElement('div');
+  recovery.className = 'capability-recovery';
+  recovery.dataset.capabilityRecovery = '';
+  recovery.dataset.diagramType = diagram.diagramType;
+  recovery.dataset.diagramStatus = capability.status;
+  const message = document.createElement('span');
+  message.textContent = `${diagramTypeLabel(diagram.diagramType)}：${diagramStatusLabel(capability.status)}。${capability.message}`;
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.dataset.copyRepro = '';
+  copy.dataset.diagramIndex = String(diagram.index);
+  copy.textContent = '复制复现源码';
+  recovery.append(message, copy);
+  return recovery;
 }
 
 function emptyPreview(showGuide: boolean): HTMLElement {

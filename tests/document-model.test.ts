@@ -42,6 +42,16 @@ describe('WorkspaceDocument', () => {
     expect(selectedDiagram(state)?.origin).toBe('raw-mermaid-block');
   });
 
+  it('keeps planned Mermaid families selectable in the document model', () => {
+    const state = createWorkspaceDocument('```mermaid\nsequenceDiagram\n  A->>B: Hello\n```');
+
+    expect(state.document.diagrams).toHaveLength(1);
+    expect(selectedDiagram(state)).toMatchObject({
+      diagramType: 'sequence',
+      origin: 'markdown-fence',
+    });
+  });
+
   it('does not guess an unfenced diagram inside prose', () => {
     const state = createWorkspaceDocument('Explanation\nflowchart TD\n  A --> B\nMore prose');
     expect(state.document.diagrams).toHaveLength(0);

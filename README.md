@@ -1,6 +1,6 @@
 # xmermaid-live
 
-Pure frontend workspace for extracting and previewing multiple Mermaid flowcharts with xmermaid.
+Pure frontend workspace for extracting and previewing multiple Mermaid diagram families with xmermaid.
 
 ## Requirements
 
@@ -15,7 +15,7 @@ npm install
 npm run dev
 ```
 
-Paste Markdown containing one or more fenced `mermaid` / `xmermaid` blocks. A document that consists only of one raw `graph` or `flowchart` block is also supported. xmermaid currently implements partial flowchart support and reports unsupported Mermaid types or syntax explicitly.
+Paste Markdown containing one or more fenced `mermaid` / `xmermaid` blocks. A document that consists only of one recognized raw Mermaid diagram is also supported. xmermaid discovers the Mermaid 11.16.0 catalog (30 documented families) through its own support contract; Flowchart currently has partial rendering support, while planned families remain selectable with diagnostics and a copyable reproduction source.
 
 ## Workbench controls
 
