@@ -626,6 +626,17 @@ test('@cross-browser renders partial User Journey tasks and keeps its capability
   await expect(preview).toContainText('Pay securely');
 });
 
+test('@cross-browser renders partial Timeline entries and keeps its capability boundary visible', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\ntimeline\n  title Product history\n  2024 : First release\n       : Team grows\n  2025 : Global launch\n```');
+  const item = page.locator('[data-diagram-item]');
+  await expect(item).toHaveAttribute('data-diagram-type', 'timeline');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expect(page.locator('[data-preview] svg')).toContainText('Global launch');
+});
+
 test('@cross-browser renders partial Mindmap hierarchies and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nmindmap\n  Root\n    Product\n      Editor\n    Renderer\n```');

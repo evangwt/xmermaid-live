@@ -42,7 +42,7 @@ describe('copy-xmermaid-wasm', () => {
       sourceBuildInputDiffSha256: string;
     };
 
-    expect(provenance.sourceBaseCommit).toBe('47533c1a00b53e7648e08d75b2f06f518136e3ae');
+    expect(provenance.sourceBaseCommit).toBe('990ea8cd8be219ab03ceb513d66bc8571654277b');
     expect(sourceBaseIsAncestor(provenance.sourceBaseCommit)).toBe(true);
     expect(provenance.sourceBuildInputDiffSha256).toBe(sourceBuildInputDiffSha256(provenance.sourceBaseCommit));
   });
@@ -62,7 +62,7 @@ describe('copy-xmermaid-wasm', () => {
     const wasm = await readFile(packagePath);
 
     expect(projectPackage.dependencies.xmermaid).toBe(`file:${provenance.packageFile}`);
-    expect(provenance.sourceBaseCommit).toBe('47533c1a00b53e7648e08d75b2f06f518136e3ae');
+    expect(provenance.sourceBaseCommit).toBe('990ea8cd8be219ab03ceb513d66bc8571654277b');
     expect(provenance.sourceBuildInputDiffSha256).toBe(sourceBuildInputDiffSha256(provenance.sourceBaseCommit));
     expect(sha256(tarball)).toBe(provenance.packageSha256);
     expect(sha256(wasm)).toBe(provenance.wasmSha256);
