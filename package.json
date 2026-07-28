@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "xmermaid": "file:vendor/xmermaid-0.1.0-theme-edge-geometry.tgz"
+    "xmermaid": "file:vendor/xmermaid-0.1.0-mindmap-boundary.tgz"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",
