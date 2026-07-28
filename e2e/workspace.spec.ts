@@ -325,13 +325,14 @@ test('switches paired themes, preserves custom style, and restores it locally', 
   await page.goto('./');
   const shell = page.locator('.app-shell');
   await expect(shell).toHaveAttribute('data-workspace-theme', 'dark');
-  await expect(page.locator('[data-preview] svg')).toHaveCSS('background-color', 'rgb(11, 17, 23)');
+  await expect(page.locator('[data-preview] svg')).toHaveCSS('background-color', 'rgb(13, 11, 26)');
 
   await page.getByRole('button', { name: '图表样式' }).click();
   await page.getByRole('slider', { name: '箭头大小' }).fill('18');
   await page.getByRole('button', { name: '关闭图表样式' }).click();
   await page.getByRole('button', { name: '浅色' }).click();
   await expect(shell).toHaveAttribute('data-workspace-theme', 'light');
+  await expect(page.locator('[data-preview] svg')).toHaveCSS('background-color', 'rgb(248, 247, 255)');
   await page.reload();
 
   await expect(shell).toHaveAttribute('data-workspace-theme', 'light');
