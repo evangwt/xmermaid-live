@@ -463,6 +463,16 @@ describe('mountApp', () => {
     expect(document.activeElement).toBe(opener);
   });
 
+  it('uses labelled bottom navigation and puts sharing in the more menu on compact layouts', () => {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    const navigation = document.querySelector<HTMLElement>('[data-mobile-navigation]')!;
+
+    expect(navigation.querySelectorAll('button')).toHaveLength(3);
+    expect(document.querySelector('[data-mobile-more]')).not.toBeNull();
+    expect(document.querySelector('[data-mobile-share]')).not.toBeNull();
+  });
+
   it('provides accessible names for every style control', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
     const dialog = document.querySelector<HTMLDialogElement>('[data-style-dialog]')!;

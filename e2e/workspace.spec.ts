@@ -512,7 +512,7 @@ test('uses a full-screen style dialog on mobile without changing the active pane
   expect(box!.width).toBeCloseTo(390, 0);
   expect(box!.height).toBeCloseTo(844, 0);
 
-  await page.getByRole('button', { name: '关闭图表样式' }).click();
+  await page.getByRole('button', { name: '完成图表样式' }).click();
   await expect(shell).toHaveAttribute('data-mobile-panel', 'edit');
 });
 
