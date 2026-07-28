@@ -473,6 +473,14 @@ describe('mountApp', () => {
     expect(document.querySelector('[data-mobile-share]')).not.toBeNull();
   });
 
+  it('uses a distinct adjustment glyph for compact chart styling', () => {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+
+    expect(document.querySelector('[data-style-open] svg')?.innerHTML).toContain('M4 7h16');
+    expect(document.querySelector('[data-mobile-theme] svg')?.innerHTML).not.toContain('M4 7h16');
+  });
+
   it('provides accessible names for every style control', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
     const dialog = document.querySelector<HTMLDialogElement>('[data-style-dialog]')!;
