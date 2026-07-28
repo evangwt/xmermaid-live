@@ -678,6 +678,20 @@ test('@cross-browser renders partial GitGraph branches and merges', async ({ pag
   await expect(preview).toContainText('RELEASE');
 });
 
+test('@cross-browser renders partial C4 system landscapes and relationships', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nC4Context\n  title Internet Banking\n  Person(customer, "Customer")\n  System(banking, "Internet Banking")\n  System_Ext(email, "E-mail system")\n  Rel(customer, banking, "Uses")\n  Rel(banking, email, "Sends mail")\n```');
+  const item = page.locator('[data-diagram-item]');
+  await expect(item).toHaveAttribute('data-diagram-type', 'c4');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const preview = page.locator('[data-preview] svg');
+  await expect(preview).toContainText('Customer');
+  await expect(preview).toContainText('Internet Banking');
+  await expect(preview).toContainText('Sends mail');
+});
+
 test('switches to exactly one panel and preserves focus at a phone viewport', async ({ page }) => {
   const expectPrivateRequests = monitorPrivacy(page);
 
