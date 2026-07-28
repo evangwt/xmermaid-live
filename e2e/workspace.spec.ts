@@ -676,6 +676,30 @@ test('zooms, fits, and pans the preview without rerendering the source', async (
   expect(await page.locator('[data-preview] svg').evaluate(svg => svg.outerHTML)).toBe(svgBefore);
 });
 
+test('restores local content and keeps canvas controls reachable', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  const documentText = 'flowchart TD\n  Local[Local cache] --> Canvas[Canvas]';
+  await page.getByRole('textbox', { name: '完整文本' }).fill(documentText);
+  await expect(page.locator('[data-preview] svg')).toContainText('Local cache');
+
+  await page.getByRole('button', { name: '收起图表列表' }).click();
+  const restoreList = page.getByRole('button', { name: '展开图表列表' });
+  await expect(restoreList).toBeVisible();
+  await restoreList.click();
+  await expect(page.locator('[data-panel="list"]')).toBeVisible();
+
+  await page.locator('[data-preview-canvas]').hover({ position: { x: 160, y: 120 } });
+  await page.mouse.wheel(0, -120);
+  await expect(page.locator('[data-preview-stage]')).toHaveAttribute('data-viewport-mode', 'manual');
+  await expect(page.locator('[data-preview-minimap] svg')).toBeVisible();
+  await expect(page.locator('[data-preview-minimap-viewport]')).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: '完整文本' })).toHaveValue(documentText);
+});
+
 test('falls back to the first diagram when a shared selection id is stale', async ({ page }) => {
   const hash = encodeShareState(PASTED_DOCUMENT, 'diagram-999');
   await page.goto(`./${hash}`);

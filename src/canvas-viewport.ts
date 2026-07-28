@@ -40,6 +40,19 @@ export function zoomCanvasViewport(
   container: CanvasSize,
   nextScale: number,
 ): CanvasViewport {
+  return zoomCanvasViewportAt(value, content, container, nextScale, {
+    x: container.width / 2,
+    y: container.height / 2,
+  });
+}
+
+export function zoomCanvasViewportAt(
+  value: CanvasViewport,
+  content: CanvasSize,
+  container: CanvasSize,
+  nextScale: number,
+  anchor: { x: number; y: number },
+): CanvasViewport {
   const current = isViewport(value) ? value : fitCanvasViewport(content, container);
   const scale = clamp(nextScale, MIN_CANVAS_SCALE, MAX_CANVAS_SCALE);
 
@@ -47,13 +60,13 @@ export function zoomCanvasViewport(
     return { mode: 'manual', scale: round(scale), offsetX: 0, offsetY: 0 };
   }
 
-  const centreX = container.width / 2;
-  const centreY = container.height / 2;
-  const contentX = (centreX - current.offsetX) / current.scale;
-  const contentY = (centreY - current.offsetY) / current.scale;
+  const anchorX = finiteOrZero(anchor.x);
+  const anchorY = finiteOrZero(anchor.y);
+  const contentX = (anchorX - current.offsetX) / current.scale;
+  const contentY = (anchorY - current.offsetY) / current.scale;
   const offset = clampOffsets(content, container, {
-    offsetX: centreX - contentX * scale,
-    offsetY: centreY - contentY * scale,
+    offsetX: anchorX - contentX * scale,
+    offsetY: anchorY - contentY * scale,
     scale,
   });
 

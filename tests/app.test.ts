@@ -339,7 +339,10 @@ describe('mountApp', () => {
     const collapse = document.querySelector<HTMLButtonElement>('[data-list-collapse]')!;
     collapse.click();
     expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.listCollapsed).toBe('true');
-    collapse.click();
+    const restore = document.querySelector<HTMLButtonElement>('[data-list-restore]')!;
+    expect(restore.getAttribute('aria-label')).toBe('展开图表列表');
+    restore.click();
+    expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.listCollapsed).toBe('false');
     expect(document.querySelector('[data-diagram-item][aria-current="true"]')?.textContent).toContain('图表 2');
   });
 
@@ -364,6 +367,20 @@ describe('mountApp', () => {
     expect(document.querySelector<HTMLElement>('[data-preview-stage]')?.dataset.viewportMode).toBe('fit');
   });
 
+  it('zooms the preview with an unmodified mouse wheel and keeps the minimap in sync', async () => {
+    vi.useFakeTimers();
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer, renderDelayMs: 0 });
+    await vi.runAllTimersAsync();
+    const canvas = document.querySelector<HTMLElement>('[data-preview-canvas]')!;
+    const wheel = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -120, clientX: 20, clientY: 20 });
+    canvas.dispatchEvent(wheel);
+
+    expect(wheel.defaultPrevented).toBe(true);
+    expect(document.querySelector<HTMLElement>('[data-preview-stage]')?.dataset.viewportMode).toBe('manual');
+    expect(document.querySelector('[data-preview-minimap] svg')).not.toBeNull();
+    expect(document.querySelector('[data-preview-minimap-viewport]')).not.toBeNull();
+  });
+
   it('uses application maximize when browser fullscreen rejects', async () => {
     Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: null });
     Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
@@ -376,6 +393,25 @@ describe('mountApp', () => {
 
     expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.previewMaximized).toBe('true');
     expect(document.querySelector('[data-action-status]')?.textContent).toContain('应用内最大化');
+    expect(document.querySelector('[data-preview-maximize-exit]')).toBeNull();
+    const control = document.querySelector<HTMLButtonElement>('[data-preview-fullscreen]')!;
+    expect(control.getAttribute('aria-label')).toBe('退出最大化预览');
+    control.click();
+    expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.previewMaximized).toBeUndefined();
+  });
+
+  it('persists complete and focused source edits through the document cache callback', () => {
+    const persistDocumentText = vi.fn();
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer, persistDocumentText });
+    const complete = document.querySelector<HTMLTextAreaElement>('[data-document-input]')!;
+    complete.value = 'flowchart TD\n  Start --> End';
+    complete.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(persistDocumentText).toHaveBeenLastCalledWith(complete.value);
+
+    const focused = document.querySelector<HTMLTextAreaElement>('[data-diagram-input]')!;
+    focused.value = 'flowchart TD\n  Start --> Cached';
+    focused.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(persistDocumentText).toHaveBeenLastCalledWith(expect.stringContaining('Cached'));
   });
 
   it('starts dark, switches paired themes, preserves overrides, and resets them', async () => {
