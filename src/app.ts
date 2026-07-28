@@ -2,6 +2,7 @@ import { encodeShareState, exportDiagram, type ExportRequest } from 'xmermaid/ed
 import { analyzeSupport, type ArrowStyle, type CurveStyle, type SourceRange, type ThemeColors } from 'xmermaid';
 import type { PreviewRenderer, PreviewSnapshot } from './preview-runtime';
 import { PreviewRuntime } from './preview-runtime';
+import type { WorkspaceCacheState } from './workspace-cache';
 import { createRenderSource } from './render-source';
 import {
   createWorkspaceDocument,
@@ -51,6 +52,8 @@ export interface AppOptions {
   initialLayoutPreferences?: WorkspaceLayoutPreferences;
   persistLayoutPreferences?: (preferences: WorkspaceLayoutPreferences) => void;
   persistDocumentText?: (text: string) => void;
+  initialViewports?: Record<string, CanvasViewport>;
+  persistWorkspaceState?: (state: WorkspaceCacheState) => void;
 }
 
 export interface MountedApp {
@@ -172,7 +175,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   let preferences = cloneThemePreferences(options.initialThemePreferences ?? DEFAULT_THEME_PREFERENCES);
   let effectiveTheme = resolveDiagramTheme(preferences);
   let layoutPreferences = options.initialLayoutPreferences ?? DEFAULT_LAYOUT_PREFERENCES;
-  const viewportCache = new Map<string, CanvasViewport>();
+  const viewportCache = new Map<string, CanvasViewport>(Object.entries(options.initialViewports ?? {}));
   const animationFrames = new Set<number>();
   let activeViewport: CanvasViewport = { mode: 'fit', scale: 1, offsetX: 0, offsetY: 0 };
   let resizeObserver: ResizeObserver | null = null;
@@ -446,6 +449,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     renderList();
     renderEditors();
     runtime.request(current?.source ?? null, effectiveTheme);
+    persistWorkspace();
   }
 
   function renderList(): void {
@@ -644,6 +648,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     renderThemeControls();
     options.persistThemePreferences?.(cloneThemePreferences(preferences));
     runtime.request(selectedDiagram(state)?.source ?? null, effectiveTheme);
+    persistWorkspace();
   }
 
   function isCompactLayout(): boolean {
@@ -690,6 +695,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     listRestoreButton.setAttribute('aria-expanded', String(!next.listCollapsed));
     if (activeViewport.mode === 'fit') refitActiveViewport();
     if (persist) options.persistLayoutPreferences?.(layoutPreferences);
+    persistWorkspace();
   }
 
   function bindWorkspaceDivider(divider: HTMLElement, kind: WorkspaceDivider): void {
@@ -767,6 +773,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     const current = selectedDiagram(state);
     if (next.mode === 'manual' && current) viewportCache.set(current.id, next);
     applyViewport();
+    persistWorkspace();
   }
 
   function refitActiveViewport(): void {
@@ -774,12 +781,25 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     if (current) viewportCache.delete(current.id);
     activeViewport = fitCanvasViewport(previewContentSize(), previewContainerSize());
     applyViewport();
+    persistWorkspace();
   }
 
   function applyViewport(): void {
     previewStage.style.transform = viewportTransform(activeViewport);
     previewStage.dataset.viewportMode = activeViewport.mode;
     updateMinimapViewport();
+  }
+
+  function persistWorkspace(): void {
+    if (!options.persistWorkspaceState) return;
+    const current = selectedDiagram(state);
+    options.persistWorkspaceState({
+      documentText: state.text,
+      selectedDiagramId: current?.id ?? null,
+      themePreferences: cloneThemePreferences(preferences),
+      layoutPreferences: { ...layoutPreferences },
+      viewports: Object.fromEntries([...viewportCache].map(([id, viewport]) => [id, { ...viewport }])),
+    });
   }
 
   async function togglePreviewFullscreen(): Promise<void> {

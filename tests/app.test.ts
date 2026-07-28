@@ -448,6 +448,21 @@ describe('mountApp', () => {
     expect(persistDocumentText).toHaveBeenLastCalledWith(expect.stringContaining('Cached'));
   });
 
+  it('emits the complete workspace state for V2 local persistence', () => {
+    const persistWorkspaceState = vi.fn();
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer, persistWorkspaceState });
+    document.querySelectorAll<HTMLButtonElement>('[data-diagram-item]')[1].click();
+    document.querySelector<HTMLButtonElement>('[data-theme-option="light"]')!.click();
+
+    expect(persistWorkspaceState).toHaveBeenLastCalledWith(expect.objectContaining({
+      documentText: DOCUMENT,
+      selectedDiagramId: 'diagram-2',
+      themePreferences: expect.objectContaining({ workspace: 'light' }),
+      layoutPreferences: expect.any(Object),
+      viewports: expect.any(Object),
+    }));
+  });
+
   it('starts dark, switches paired themes, preserves overrides, and resets them', async () => {
     vi.useFakeTimers();
     const persist = vi.fn();
