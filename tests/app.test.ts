@@ -164,6 +164,17 @@ describe('mountApp', () => {
     expect(item.dataset.diagramStatus).toBe('partial');
   });
 
+  it('marks the native Block Diagram grid subset as partial instead of planned', () => {
+    mounted = mountApp(root(), {
+      initialText: '```mermaid\nblock-beta\n  columns 3\n  A B C\n  Wide:2 D\n  A --> B\n```',
+      renderer,
+    });
+
+    const item = document.querySelector<HTMLButtonElement>('[data-diagram-item]')!;
+    expect(item.dataset.diagramType).toBe('block');
+    expect(item.dataset.diagramStatus).toBe('partial');
+  });
+
   it('keeps the last valid SVG while a partial diagram reports its recovery state', async () => {
     vi.useFakeTimers();
     const stagedRenderer: PreviewRenderer = async source => {

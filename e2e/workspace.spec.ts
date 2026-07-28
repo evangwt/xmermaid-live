@@ -670,6 +670,20 @@ test('@cross-browser renders partial Architecture Diagram services and relations
   await expect(preview.locator('.edge')).toHaveCount(1);
 });
 
+test('@cross-browser renders native partial Block Diagram grid cells and relationships', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nblock-beta\n  columns 3\n  A B C\n  Wide:2 D\n  A --> B\n```');
+  const item = page.locator('[data-diagram-item]');
+  const preview = page.locator('[data-preview]');
+
+  await expect(item).toHaveAttribute('data-diagram-type', 'block');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expect(preview.locator('.block-node')).toHaveCount(5);
+  await expect(preview.locator('.block-relationship')).toHaveCount(1);
+  await expect(preview.locator('.block-relationship polygon')).toHaveCount(1);
+});
+
 test('@cross-browser renders partial User Journey tasks and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\njourney\n  title Checkout\n  section Explore\n    Find product: 5: Buyer\n  section Purchase\n    Pay securely: 4: Buyer, Store\n```');
