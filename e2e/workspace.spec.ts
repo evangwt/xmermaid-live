@@ -684,6 +684,20 @@ test('@cross-browser renders native partial Block Diagram grid cells and relatio
   await expect(preview.locator('.block-relationship polygon')).toHaveCount(1);
 });
 
+test('@cross-browser renders native partial Kanban columns and task cards', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nkanban\n  todo[To do]\n    write[Write documentation]\n  doing[In progress]\n    ship[Ship renderer]\n  done[Done]\n```');
+  const item = page.locator('[data-diagram-item]');
+  const preview = page.locator('[data-preview]');
+
+  await expect(item).toHaveAttribute('data-diagram-type', 'kanban');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expect(preview.locator('.kanban-column')).toHaveCount(3);
+  await expect(preview.locator('.kanban-header')).toHaveCount(3);
+  await expect(preview.locator('.kanban-task')).toHaveCount(2);
+});
+
 test('@cross-browser renders partial User Journey tasks and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\njourney\n  title Checkout\n  section Explore\n    Find product: 5: Buyer\n  section Purchase\n    Pay securely: 4: Buyer, Store\n```');

@@ -175,6 +175,17 @@ describe('mountApp', () => {
     expect(item.dataset.diagramStatus).toBe('partial');
   });
 
+  it('marks the native Kanban board subset as partial instead of planned', () => {
+    mounted = mountApp(root(), {
+      initialText: '```mermaid\nkanban\n  todo[To do]\n    write[Write documentation]\n  done[Done]\n```',
+      renderer,
+    });
+
+    const item = document.querySelector<HTMLButtonElement>('[data-diagram-item]')!;
+    expect(item.dataset.diagramType).toBe('kanban');
+    expect(item.dataset.diagramStatus).toBe('partial');
+  });
+
   it('keeps the last valid SVG while a partial diagram reports its recovery state', async () => {
     vi.useFakeTimers();
     const stagedRenderer: PreviewRenderer = async source => {
