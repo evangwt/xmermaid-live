@@ -20,12 +20,18 @@ const cachedWorkspace = parseWorkspaceCache(safeRead(WORKSPACE_STORAGE_KEY))
   ?? parseWorkspaceCache(safeRead(LEGACY_DOCUMENT_STORAGE_KEY));
 const initialText = restored?.documentText ?? cachedWorkspace?.documentText ?? SAMPLE_DOCUMENT;
 const initialState = createWorkspaceDocumentForDiagram(initialText, restored?.selectedDiagramId ?? cachedWorkspace?.selectedDiagramId ?? null);
-const initialLayoutPreferences = cachedWorkspace?.layoutPreferences
-  ? parseLayoutPreferences(JSON.stringify(cachedWorkspace.layoutPreferences))
-  : parseLayoutPreferences(safeRead(LAYOUT_STORAGE_KEY));
-const initialThemePreferences = cachedWorkspace?.themePreferences
-  ? parseThemePreferences(JSON.stringify(cachedWorkspace.themePreferences))
-  : parseThemePreferences(safeRead(THEME_STORAGE_KEY));
+const savedLayoutPreferences = safeRead(LAYOUT_STORAGE_KEY);
+const savedThemePreferences = safeRead(THEME_STORAGE_KEY);
+const initialLayoutPreferences = savedLayoutPreferences
+  ? parseLayoutPreferences(savedLayoutPreferences)
+  : cachedWorkspace?.layoutPreferences
+    ? parseLayoutPreferences(JSON.stringify(cachedWorkspace.layoutPreferences))
+    : parseLayoutPreferences(null);
+const initialThemePreferences = savedThemePreferences
+  ? parseThemePreferences(savedThemePreferences)
+  : cachedWorkspace?.themePreferences
+    ? parseThemePreferences(JSON.stringify(cachedWorkspace.themePreferences))
+    : parseThemePreferences(null);
 const workspaceCacheWriter = createWorkspaceCacheWriter({
   storage: safeStorage(),
   key: WORKSPACE_STORAGE_KEY,
