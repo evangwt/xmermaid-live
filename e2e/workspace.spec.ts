@@ -800,6 +800,36 @@ test('keeps workbench geometry within every supported viewport', async ({ page }
   }
 });
 
+test('gives the Aurora canvas visual priority without hiding source editing', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('./');
+
+  const sizes = await page.locator('.app-shell').evaluate(shell => {
+    const width = (selector: string) => shell.querySelector<HTMLElement>(selector)!.getBoundingClientRect().width;
+    return { editor: width('.editor-panel'), preview: width('[data-preview-canvas]') };
+  });
+
+  expect(sizes.preview).toBeGreaterThan(sizes.editor);
+});
+
+test('keeps the mobile preview canvas full width when diagnostics are visible', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('./');
+  await page.getByRole('button', { name: '预览', exact: true }).click();
+
+  const layout = await page.locator('.app-shell').evaluate(shell => {
+    const rect = (selector: string) => {
+      const { x, width } = shell.querySelector<HTMLElement>(selector)!.getBoundingClientRect();
+      return { x, width };
+    };
+    return { preview: rect('[data-panel="preview"]'), navigation: rect('[data-mobile-navigation]') };
+  });
+
+  expect(layout.preview.x).toBe(0);
+  expect(layout.preview.width).toBe(390);
+  expect(layout.navigation.width).toBe(390);
+});
+
 test('switches editor tabs with the keyboard', async ({ page }) => {
   await page.goto('./');
   const documentTab = page.getByRole('tab', { name: '完整文本' });
