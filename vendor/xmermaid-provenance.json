@@ -1,8 +1,8 @@
 {
   "sourceRemote": "https://pkg.full-stacker.net/Evan/xmermaid.git",
-  "sourceBaseCommit": "c4cbabeaab7dc7f85956ae22c624c52825c4ff7c",
+  "sourceBaseCommit": "d71f4158c64c0e6c40f90f0950029a3ae4c88a41",
   "sourceBuildInputDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "packageFile": "vendor/xmermaid-0.1.0-theme-edge-geometry.tgz",
-  "packageSha256": "e09e1c30d5b28036edcce341f93d5fbf4fff10078ebb0fa751388c4c8b2c74ff",
-  "wasmSha256": "cb79d1a1344b9e99ddf5a09f9965ec2d9cb02452f2bb936857f179fc45d496ab"
+  "packageSha256": "47555bde0d19b228e4c5620d34a323316c2b284656c8a3d194d19c04f2558a2e",
+  "wasmSha256": "59bf91389a5ac33e4b695cea77d3f7254b31432573376298c4609b15db85d30b"
 }

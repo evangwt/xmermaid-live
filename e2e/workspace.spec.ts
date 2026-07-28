@@ -524,7 +524,7 @@ test('keeps the last SVG but blocks stale export after a render error', async ({
   await expect(previewSvg).toBeVisible();
   const successfulMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
   await page.getByRole('tab', { name: '当前图表' }).click();
-  await page.getByRole('textbox', { name: '当前图表' }).fill('gantt\n  title Project plan\n  section Delivery\n  Ship :done, 2026-07-28, 1d');
+  await page.getByRole('textbox', { name: '当前图表' }).fill('pie\n  title Project plan\n  "Ship" : 1');
 
   await expect(page.locator('[data-preview-status]')).toHaveText('预览未更新');
   await expect(previewSvg).toBeVisible();
@@ -584,6 +584,20 @@ test('@cross-browser renders the partial Entity Relationship subset and keeps it
   await expect(preview).toContainText('CUSTOMER');
   await expect(preview).toContainText('ORDER');
   await expect(preview).toContainText('places');
+});
+
+test('@cross-browser renders the partial Gantt subset and keeps its capability boundary visible', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\ngantt\n  section Build\n  Compile : 2026-07-28, 2d\n```');
+  const item = page.locator('[data-diagram-item]');
+  await expect(item).toHaveCount(1);
+  await expect(item).toHaveAttribute('data-diagram-type', 'gantt');
+  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
+  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const preview = page.locator('[data-preview] svg');
+  await expect(preview).toContainText('Build');
+  await expect(preview).toContainText('Compile');
 });
 
 test('switches to exactly one panel and preserves focus at a phone viewport', async ({ page }) => {
