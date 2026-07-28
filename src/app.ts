@@ -11,6 +11,15 @@ import {
   setWorkspaceText,
 } from './document-model';
 import {
+  DEFAULT_LAYOUT_PREFERENCES,
+  adjustWorkspaceDivider,
+  resolveWorkspaceLayout,
+  toggleListCollapsed,
+  type WorkspaceDivider,
+  type WorkspaceLayoutPreferences,
+} from './layout-preferences';
+import { icon } from './icons';
+import {
   DEFAULT_THEME_PREFERENCES,
   THEME_FONT_FAMILIES,
   resolveDiagramTheme,
@@ -29,6 +38,8 @@ export interface AppOptions {
   saveBlob?: (blob: Blob, fileName: string) => void;
   initialThemePreferences?: ThemePreferences;
   persistThemePreferences?: (preferences: ThemePreferences) => void;
+  initialLayoutPreferences?: WorkspaceLayoutPreferences;
+  persistLayoutPreferences?: (preferences: WorkspaceLayoutPreferences) => void;
 }
 
 export interface MountedApp {
@@ -63,9 +74,10 @@ const SHELL = `
     </nav>
     <div class="workspace">
       <aside class="diagram-panel" data-panel="list" aria-label="图表列表">
-        <div class="panel-heading"><h2>图表</h2><span data-diagram-count></span></div>
+        <div class="panel-heading"><h2>图表</h2><span data-diagram-count></span><button type="button" class="quiet-icon-button" data-list-collapse aria-label="收起图表列表">${icon('chevron-left')}</button></div>
         <div class="diagram-list" data-diagram-list></div>
       </aside>
+      <div class="workspace-divider" data-workspace-divider="list" role="separator" aria-orientation="vertical" aria-label="调整图表列表宽度" tabindex="0"></div>
       <section class="editor-panel" data-panel="edit">
         <div class="editor-tabs" role="tablist" aria-label="编辑内容">
           <button type="button" role="tab" id="document-editor-tab" aria-controls="document-editor-panel" data-editor-tab="document">完整文本</button>
@@ -80,6 +92,7 @@ const SHELL = `
           <textarea data-diagram-input aria-label="当前图表" spellcheck="false"></textarea>
         </label>
       </section>
+      <div class="workspace-divider" data-workspace-divider="editor" role="separator" aria-orientation="vertical" aria-label="调整编辑器与预览宽度" tabindex="0"></div>
       <section class="preview-panel" data-panel="preview" aria-label="实时预览">
         <div class="panel-heading"><h2>预览</h2><span data-preview-status></span></div>
         <div class="preview-canvas" data-preview></div>
@@ -157,6 +170,7 @@ const COMPACT_LAYOUT_QUERY = '(max-width: 1024px)';
 export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   root.innerHTML = SHELL;
   const shell = required<HTMLElement>(root, '.app-shell');
+  const workspace = required<HTMLElement>(root, '.workspace');
   const list = required<HTMLElement>(root, '[data-diagram-list]');
   const count = required<HTMLElement>(root, '[data-diagram-count]');
   const documentInput = required<HTMLTextAreaElement>(root, '[data-document-input]');
@@ -172,6 +186,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   const styleCloseButton = required<HTMLButtonElement>(root, '[data-style-close]');
   const styleDialog = required<HTMLDialogElement>(root, '[data-style-dialog]');
   const styleResetButton = required<HTMLButtonElement>(root, '[data-style-reset]');
+  const listCollapseButton = required<HTMLButtonElement>(root, '[data-list-collapse]');
   const exporter = options.exporter ?? exportDiagram;
   const saveBlob = options.saveBlob ?? downloadBlob;
   let state = createWorkspaceDocument(options.initialText, options.initialSelectedIndex ?? 0);
@@ -180,6 +195,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   let renderedListSignature: string | null = null;
   let preferences = cloneThemePreferences(options.initialThemePreferences ?? DEFAULT_THEME_PREFERENCES);
   let effectiveTheme = resolveDiagramTheme(preferences);
+  let layoutPreferences = options.initialLayoutPreferences ?? DEFAULT_LAYOUT_PREFERENCES;
   shell.dataset.workspaceTheme = preferences.workspace;
 
   const runtime = new PreviewRuntime(
@@ -217,6 +233,15 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   styleResetButton.addEventListener('click', () => {
     applyThemePreferences({ ...preferences, overrides: {} });
   });
+  listCollapseButton.addEventListener('click', () => {
+    applyLayoutPreferences(toggleListCollapsed(layoutPreferences), true);
+  });
+
+  for (const divider of root.querySelectorAll<HTMLElement>('[data-workspace-divider]')) {
+    const kind = divider.dataset.workspaceDivider as WorkspaceDivider;
+    if (kind !== 'list' && kind !== 'editor') continue;
+    bindWorkspaceDivider(divider, kind);
+  }
 
   for (const button of root.querySelectorAll<HTMLButtonElement>('[data-theme-option]')) {
     button.addEventListener('click', () => {
@@ -463,6 +488,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   }
 
   renderThemeControls();
+  applyLayoutPreferences(layoutPreferences);
   renderDocument();
   renderMobileNavigation();
 
@@ -480,6 +506,69 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     renderThemeControls();
     options.persistThemePreferences?.(cloneThemePreferences(preferences));
     runtime.request(selectedDiagram(state)?.source ?? null, effectiveTheme);
+  }
+
+  function applyLayoutPreferences(next: WorkspaceLayoutPreferences, persist = false): void {
+    layoutPreferences = next;
+    const layout = resolveWorkspaceLayout(next, workspace.getBoundingClientRect().width);
+    shell.dataset.listCollapsed = String(next.listCollapsed);
+    workspace.style.setProperty('--list-width', `${layout.listWidth}px`);
+    workspace.style.setProperty('--editor-width', `${layout.editorWidth}px`);
+    workspace.style.setProperty('--preview-width', `${layout.previewWidth}px`);
+    listCollapseButton.setAttribute('aria-label', next.listCollapsed ? '展开图表列表' : '收起图表列表');
+    listCollapseButton.innerHTML = icon(next.listCollapsed ? 'chevron-right' : 'chevron-left');
+    if (persist) options.persistLayoutPreferences?.(layoutPreferences);
+  }
+
+  function bindWorkspaceDivider(divider: HTMLElement, kind: WorkspaceDivider): void {
+    let drag: { pointerId: number; startX: number; start: WorkspaceLayoutPreferences; next: WorkspaceLayoutPreferences } | null = null;
+    let frame = 0;
+
+    const applyDrag = () => {
+      frame = 0;
+      if (drag) applyLayoutPreferences(drag.next);
+    };
+    const endDrag = (event: PointerEvent) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+        frame = 0;
+      }
+      const next = drag.next;
+      if (divider.hasPointerCapture(event.pointerId)) divider.releasePointerCapture(event.pointerId);
+      drag = null;
+      applyLayoutPreferences(next, true);
+    };
+
+    divider.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return;
+      drag = { pointerId: event.pointerId, startX: event.clientX, start: layoutPreferences, next: layoutPreferences };
+      divider.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+    divider.addEventListener('pointermove', event => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      drag.next = adjustWorkspaceDivider(drag.start, kind, event.clientX - drag.startX, workspace.getBoundingClientRect().width);
+      if (!frame) frame = window.requestAnimationFrame(applyDrag);
+    });
+    divider.addEventListener('pointerup', endDrag);
+    divider.addEventListener('pointercancel', endDrag);
+    divider.addEventListener('dblclick', () => applyLayoutPreferences(DEFAULT_LAYOUT_PREFERENCES, true));
+    divider.addEventListener('keydown', event => {
+      const delta = event.shiftKey ? 64 : 16;
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        applyLayoutPreferences(adjustWorkspaceDivider(
+          layoutPreferences,
+          kind,
+          event.key === 'ArrowLeft' ? -delta : delta,
+          workspace.getBoundingClientRect().width,
+        ), true);
+      } else if (event.key === 'Home' || event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        applyLayoutPreferences(DEFAULT_LAYOUT_PREFERENCES, true);
+      }
+    });
   }
 
   function updateStyleOverride<K extends keyof DiagramStyleOverrides>(

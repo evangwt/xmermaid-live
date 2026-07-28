@@ -315,6 +315,34 @@ describe('mountApp', () => {
     expect(document.querySelector<HTMLTextAreaElement>('[data-document-input]')?.getAttribute('aria-label')).toBe('完整文本');
   });
 
+  it('renders two keyboard-operable desktop dividers and persists only layout changes', () => {
+    const persistLayout = vi.fn();
+    const render = vi.fn(renderer);
+    mounted = mountApp(root(), {
+      initialText: DOCUMENT,
+      renderer: render,
+      initialLayoutPreferences: { version: 1, listCollapsed: false, listFraction: .18, editorFraction: .38 },
+      persistLayoutPreferences: persistLayout,
+    });
+    const divider = document.querySelector<HTMLElement>('[data-workspace-divider="list"]')!;
+    const callsBefore = render.mock.calls.length;
+    divider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+
+    expect(document.querySelectorAll('[data-workspace-divider]')).toHaveLength(2);
+    expect(persistLayout).toHaveBeenCalledWith(expect.objectContaining({ listFraction: expect.any(Number) }));
+    expect(render).toHaveBeenCalledTimes(callsBefore);
+  });
+
+  it('collapses and restores the diagram list without replacing the selected diagram', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    document.querySelectorAll<HTMLButtonElement>('[data-diagram-item]')[1].click();
+    const collapse = document.querySelector<HTMLButtonElement>('[data-list-collapse]')!;
+    collapse.click();
+    expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.listCollapsed).toBe('true');
+    collapse.click();
+    expect(document.querySelector('[data-diagram-item][aria-current="true"]')?.textContent).toContain('图表 2');
+  });
+
   it('starts dark, switches paired themes, preserves overrides, and resets them', async () => {
     vi.useFakeTimers();
     const persist = vi.fn();
@@ -414,6 +442,6 @@ describe('mountApp', () => {
 
     document.querySelector<HTMLButtonElement>('[data-theme-option="light"]')!.click();
     expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#f4f7f8');
-    expect(getComputedStyle(document.querySelector<HTMLElement>('.workspace')!).gridTemplateColumns).toContain('208px');
+    expect(getComputedStyle(document.querySelector<HTMLElement>('.workspace')!).getPropertyValue('--list-width').trim()).toBe('168px');
   });
 });
