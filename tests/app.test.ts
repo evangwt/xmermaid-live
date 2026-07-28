@@ -343,6 +343,41 @@ describe('mountApp', () => {
     expect(document.querySelector('[data-diagram-item][aria-current="true"]')?.textContent).toContain('图表 2');
   });
 
+  it('changes only the preview viewport when zoom and fit controls are used', async () => {
+    vi.useFakeTimers();
+    const render = vi.fn(renderer);
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer: render, renderDelayMs: 0 });
+    await vi.runAllTimersAsync();
+    const initialCalls = render.mock.calls.length;
+
+    document.querySelector<HTMLButtonElement>('[data-preview-zoom="in"]')!.click();
+    expect(document.querySelector<HTMLElement>('[data-preview-stage]')?.style.transform).toContain('scale(');
+    expect(render).toHaveBeenCalledTimes(initialCalls);
+
+    document.querySelector<HTMLButtonElement>('[data-preview-fit]')!.click();
+    expect(document.querySelector<HTMLElement>('[data-preview-stage]')?.dataset.viewportMode).toBe('fit');
+
+    document.querySelectorAll<HTMLButtonElement>('[data-diagram-item]')[1].click();
+    await vi.runAllTimersAsync();
+    document.querySelectorAll<HTMLButtonElement>('[data-diagram-item]')[0].click();
+    await vi.runAllTimersAsync();
+    expect(document.querySelector<HTMLElement>('[data-preview-stage]')?.dataset.viewportMode).toBe('fit');
+  });
+
+  it('uses application maximize when browser fullscreen rejects', async () => {
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: null });
+    Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+      configurable: true,
+      value: vi.fn().mockRejectedValue(new Error('denied')),
+    });
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    document.querySelector<HTMLButtonElement>('[data-preview-fullscreen]')!.click();
+    await Promise.resolve();
+
+    expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.previewMaximized).toBe('true');
+    expect(document.querySelector('[data-action-status]')?.textContent).toContain('应用内最大化');
+  });
+
   it('starts dark, switches paired themes, preserves overrides, and resets them', async () => {
     vi.useFakeTimers();
     const persist = vi.fn();

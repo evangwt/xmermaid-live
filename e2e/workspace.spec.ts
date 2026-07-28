@@ -437,12 +437,12 @@ test('keeps labels, geometry, and scaling visible in real SVG output', async ({ 
       scaleX: rendered.width / viewBox.width,
       scaleY: rendered.height / viewBox.height,
       textHeight: text.getBoundingClientRect().height,
-      scrollsVertically: preview.scrollHeight > preview.clientHeight,
+      viewportMode: preview.querySelector('[data-preview-stage]')?.getAttribute('data-viewport-mode'),
     };
   });
   expect(Math.abs(tallDiagram.scaleX - tallDiagram.scaleY)).toBeLessThan(0.01);
-  expect(tallDiagram.textHeight).toBeGreaterThanOrEqual(10);
-  expect(tallDiagram.scrollsVertically).toBe(true);
+  expect(tallDiagram.textHeight).toBeGreaterThan(0);
+  expect(tallDiagram.viewportMode).toBe('fit');
   expectPrivateRequests();
 });
 
@@ -555,6 +555,23 @@ test('switches editor tabs with the keyboard', async ({ page }) => {
   await expect(diagramTab).toBeFocused();
   await expect(diagramTab).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('textbox', { name: '当前图表' })).toBeVisible();
+});
+
+test('zooms, fits, and pans the preview without rerendering the source', async ({ page }) => {
+  await page.goto('./');
+  const source = await page.getByRole('textbox', { name: '完整文本' }).inputValue();
+  const svgBefore = await page.locator('[data-preview] svg').evaluate(svg => svg.outerHTML);
+
+  await page.getByRole('button', { name: '放大预览' }).click();
+  await expect(page.locator('[data-preview-stage]')).toHaveAttribute('data-viewport-mode', 'manual');
+  await page.locator('[data-preview-canvas]').hover({ position: { x: 120, y: 120 } });
+  await page.mouse.down();
+  await page.mouse.move(160, 150);
+  await page.mouse.up();
+  await page.getByRole('button', { name: '适配预览' }).click();
+
+  await expect(page.getByRole('textbox', { name: '完整文本' })).toHaveValue(source);
+  expect(await page.locator('[data-preview] svg').evaluate(svg => svg.outerHTML)).toBe(svgBefore);
 });
 
 test('falls back to the first diagram when a shared selection id is stale', async ({ page }) => {
