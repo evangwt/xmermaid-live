@@ -73,6 +73,15 @@ describe('mountApp', () => {
     expect(document.querySelector('.preview-actions')?.getAttribute('aria-label')).toBe('画布视图控制');
   });
 
+  it('marks the canvas-led Aurora hierarchy without changing accessible controls', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+
+    const shell = document.querySelector<HTMLElement>('.app-shell')!;
+    expect(shell.dataset.studioLayout).toBe('aurora');
+    expect(document.querySelector<HTMLElement>('[data-preview-canvas]')?.dataset.previewPriority).toBe('primary');
+    expect(document.querySelector('[data-preview-fit]')?.getAttribute('aria-label')).toBe('适配预览');
+  });
+
   it('extracts a pasted document into a switchable diagram list', async () => {
     vi.useFakeTimers();
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer, renderDelayMs: 10 });
@@ -593,10 +602,10 @@ describe('mountApp', () => {
   it('applies distinct semantic workbench themes without changing panel geometry', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
     const shell = document.querySelector<HTMLElement>('.app-shell')!;
-    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#090A12');
+    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#08090f');
 
     document.querySelector<HTMLButtonElement>('[data-theme-option="light"]')!.click();
-    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#F4F3F8');
+    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#f4f2ed');
     expect(getComputedStyle(document.querySelector<HTMLElement>('.workspace')!).getPropertyValue('--list-width').trim()).toBe('168px');
   });
 });
