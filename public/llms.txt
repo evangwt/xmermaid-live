@@ -1,0 +1,17 @@
+# xmermaid live
+
+Homepage: https://evangwt.github.io/xmermaid-live/
+Source: https://github.com/evangwt/xmermaid-live
+Languages: 中文 (zh-CN), English (en)
+
+## 中文
+
+xmermaid live 是浏览器内 Mermaid 图表工作台：它从 Markdown 中提取多张 Mermaid 图表，允许编辑当前图表、预览 SVG，并导出 SVG 或 PNG。图表支持范围以 xmermaid 运行时诊断为准。用户文档仅保留在浏览器内存和分享 URL hash 中，不上传用户文档到服务器。
+
+## English
+
+xmermaid live is a browser-based Mermaid diagram workspace. It extracts multiple Mermaid diagrams from Markdown, lets users edit the current diagram, previews SVG output, and exports SVG or PNG. Diagram support follows xmermaid runtime diagnostics. The application does not upload user documents; they remain in browser memory and share-link URL hashes.
+
+## Verification
+
+The project verifies type checking, unit tests, a production build, and browser tests. See the repository README for development and deployment details.

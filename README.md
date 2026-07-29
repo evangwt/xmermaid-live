@@ -35,6 +35,16 @@ The verification suite includes unit tests, type checking, a production build, r
 
 ## Static deployment
 
+### GitHub Pages
+
+The public site is <https://evangwt.github.io/xmermaid-live/>. The repository workflow `.github/workflows/deploy-pages.yml` builds and deploys every push to `main`; it can also be run manually from the Actions tab.
+
+Before the first deployment, open **Settings → Pages** in GitHub and set **Build and deployment → Source** to **GitHub Actions**.
+
+### Search and AI discovery
+
+The static homepage provides Chinese and English metadata, truthful SoftwareApplication structured data, a sitemap, crawler rules, and `llms.txt`. These documents describe the browser-only Mermaid editor, its runtime support boundary, and the fact that it does not upload user documents.
+
 ```bash
 npm run build
 ```

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://evangwt.github.io/xmermaid-live/sitemap.xml
