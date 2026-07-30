@@ -1,6 +1,6 @@
 import { expect, test, type Download, type Page } from '@playwright/test';
 import { readdirSync } from 'node:fs';
-import { encodeShareState } from 'xmermaid/editor';
+import { encodeShareState } from '@evangwt/xmermaid/editor';
 
 const ORIGIN = 'http://127.0.0.1:4173';
 const DEPLOYMENT_PREFIXES = ['/', '/xmermaid-live/'] as const;

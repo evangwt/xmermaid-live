@@ -1,100 +1,78 @@
 // @vitest-environment node
 
-import { readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 const copiedPath = new URL('../public/xmermaid_wasm_bg.wasm', import.meta.url);
-const packagePath = new URL('../node_modules/xmermaid/dist/xmermaid_wasm_bg.wasm', import.meta.url);
+const packagePath = new URL('../node_modules/@evangwt/xmermaid/dist/xmermaid_wasm_bg.wasm', import.meta.url);
 const projectPackagePath = new URL('../package.json', import.meta.url);
-const provenancePath = new URL('../vendor/xmermaid-provenance.json', import.meta.url);
-const SOURCE_BUILD_INPUTS = [
-  'Cargo.toml',
-  'Cargo.lock',
-  'package.json',
-  'rollup.config.ts',
-  'tsconfig.json',
-  'README.md',
-  'LICENSE',
-  'scripts/build-wasm.cjs',
-  'scripts/copy-wasm-dist.cjs',
-  'src',
-  'crates/xmermaid-layout/Cargo.toml',
-  'crates/xmermaid-layout/src',
-  'crates/xmermaid-parser/Cargo.toml',
-  'crates/xmermaid-parser/src',
-  'crates/xmermaid-wasm/Cargo.toml',
-  'crates/xmermaid-wasm/src',
-] as const;
-
-async function removeCopiedAsset() {
-  await rm(copiedPath, { force: true });
-}
-
-beforeEach(removeCopiedAsset);
-afterEach(removeCopiedAsset);
+const lockfilePath = new URL('../package-lock.json', import.meta.url);
+const packageSpec = 'file:vendor/evangwt-xmermaid-0.1.7.tgz';
+const packageIntegrity = 'sha512-9KVgnEo5R+i+SW02kH8u7BiKiaDYENltC6AYPww5kS/6erTJ20H+VFy/du6d/Gb7lsEcPMtDQxdpWV+mE4COwg==';
 
 describe('copy-xmermaid-wasm', () => {
-  it('pins the vendored package to its upstream base commit and build-input diff', async () => {
-    const provenance = JSON.parse(await readFile(provenancePath, 'utf8')) as {
-      sourceBaseCommit: string;
-      sourceBuildInputDiffSha256: string;
+  it('uses the scoped SDK package artifact selected for this build', async () => {
+    const projectPackage = JSON.parse(await readFile(projectPackagePath, 'utf8')) as {
+      dependencies: Record<string, string>;
     };
 
-    expect(provenance.sourceBaseCommit).toBe('350efe3236965b3997a9091120758cdea9377e1d');
-    expect(sourceBaseIsAncestor(provenance.sourceBaseCommit)).toBe(true);
-    expect(provenance.sourceBuildInputDiffSha256).toBe(sourceBuildInputDiffSha256(provenance.sourceBaseCommit));
+    expect(projectPackage.dependencies['@evangwt/xmermaid']).toBe(packageSpec);
   });
 
-  it('installs the vendored package whose bytes match recorded provenance', async () => {
+  it('locks the vendored package artifact with its measured integrity', async () => {
     const projectPackage = JSON.parse(await readFile(projectPackagePath, 'utf8')) as {
-      dependencies: { xmermaid: string };
+      dependencies: { '@evangwt/xmermaid': string };
     };
-    const provenance = JSON.parse(await readFile(provenancePath, 'utf8')) as {
-      packageFile: string;
-      packageSha256: string;
-      sourceBaseCommit: string;
-      sourceBuildInputDiffSha256: string;
-      wasmSha256: string;
+    const packageLock = JSON.parse(await readFile(lockfilePath, 'utf8')) as {
+      packages: Record<string, {
+        version?: string;
+        resolved?: string;
+        integrity?: string;
+      }>;
     };
-    const tarball = await readFile(new URL(`../${provenance.packageFile}`, import.meta.url));
+    const installedPackage = JSON.parse(await readFile(
+      new URL('../node_modules/@evangwt/xmermaid/package.json', import.meta.url),
+      'utf8',
+    )) as { name?: string; version?: string };
     const wasm = await readFile(packagePath);
 
-    expect(projectPackage.dependencies.xmermaid).toBe(`file:${provenance.packageFile}`);
-    expect(provenance.sourceBaseCommit).toBe('350efe3236965b3997a9091120758cdea9377e1d');
-    expect(provenance.sourceBuildInputDiffSha256).toBe(sourceBuildInputDiffSha256(provenance.sourceBaseCommit));
-    expect(sha256(tarball)).toBe(provenance.packageSha256);
-    expect(sha256(wasm)).toBe(provenance.wasmSha256);
+    expect(projectPackage.dependencies['@evangwt/xmermaid']).toBe(packageSpec);
+    expect(packageLock.packages['node_modules/@evangwt/xmermaid']).toMatchObject({
+      version: '0.1.7',
+      resolved: packageSpec,
+      integrity: packageIntegrity,
+    });
+    expect(installedPackage).toMatchObject({ name: '@evangwt/xmermaid', version: '0.1.7' });
+    expect(wasm.byteLength).toBeGreaterThan(0);
   });
 
-  it('copies the exact installed WASM bytes into public assets', async () => {
-    const result = spawnSync(process.execPath, ['scripts/copy-xmermaid-wasm.mjs'], {
-      cwd: new URL('..', import.meta.url),
-      encoding: 'utf8',
-    });
+  it('copies into an isolated output directory without touching the live public asset', async () => {
+    const publicAssetBefore = await readOptionalFile(copiedPath);
+    const outputDirectory = await mkdtemp(join(tmpdir(), 'xmermaid-live-wasm-'));
 
-    expect(result.status, result.stderr).toBe(0);
-    expect(await readFile(copiedPath)).toEqual(await readFile(packagePath));
+    try {
+      const result = spawnSync(process.execPath, ['scripts/copy-xmermaid-wasm.mjs', '--output-dir', outputDirectory], {
+        cwd: new URL('..', import.meta.url),
+        encoding: 'utf8',
+      });
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(await readFile(join(outputDirectory, 'xmermaid_wasm_bg.wasm'))).toEqual(await readFile(packagePath));
+      expect(await readOptionalFile(copiedPath)).toEqual(publicAssetBefore);
+    } finally {
+      await rm(outputDirectory, { recursive: true, force: true });
+    }
   });
 });
 
-function sha256(bytes: Buffer): string {
-  return createHash('sha256').update(bytes).digest('hex');
-}
-
-function sourceBuildInputDiffSha256(sourceBaseCommit: string): string {
-  const result = spawnSync('git', ['diff', '--no-ext-diff', '--binary', sourceBaseCommit, '--', ...SOURCE_BUILD_INPUTS], {
-    cwd: new URL('../../xmermaid/', import.meta.url),
-    encoding: 'buffer',
-  });
-  expect(result.status, result.stderr.toString()).toBe(0);
-  return sha256(result.stdout);
-}
-
-function sourceBaseIsAncestor(sourceBaseCommit: string): boolean {
-  const result = spawnSync('git', ['merge-base', '--is-ancestor', sourceBaseCommit, 'HEAD'], {
-    cwd: new URL('../../xmermaid/', import.meta.url),
-  });
-  return result.status === 0;
+async function readOptionalFile(path: URL): Promise<Buffer | null> {
+  try {
+    return await readFile(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
 }

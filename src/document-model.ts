@@ -3,7 +3,7 @@ import {
   replaceDiagramSource,
   type DiagramBlock,
   type DiagramDocument,
-} from 'xmermaid/editor';
+} from '@evangwt/xmermaid/editor';
 
 export interface WorkspaceDocument {
   text: string;

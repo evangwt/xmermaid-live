@@ -1,4 +1,4 @@
-import { decodeShareState } from 'xmermaid/editor';
+import { decodeShareState } from '@evangwt/xmermaid/editor';
 import './styles.css';
 import { mountApp } from './app';
 import { createWorkspaceDocumentForDiagram } from './document-model';

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DARK_THEME } from 'xmermaid';
+import { DARK_THEME } from '@evangwt/xmermaid';
 
 const constructors = vi.hoisted(() => vi.fn());
 const renderToSVGElement = vi.hoisted(() => vi.fn(() => Promise.resolve({
@@ -7,8 +7,8 @@ const renderToSVGElement = vi.hoisted(() => vi.fn(() => Promise.resolve({
   diagnostics: [],
 })));
 
-vi.mock('xmermaid', async importOriginal => {
-  const actual = await importOriginal<typeof import('xmermaid')>();
+vi.mock('@evangwt/xmermaid', async importOriginal => {
+  const actual = await importOriginal<typeof import('@evangwt/xmermaid')>();
   return {
     ...actual,
     XMermaid: class {

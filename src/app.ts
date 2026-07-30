@@ -1,5 +1,5 @@
-import { encodeShareState, exportDiagram, type ExportRequest } from 'xmermaid/editor';
-import { analyzeSupport, type ArrowStyle, type CurveStyle, type SourceRange, type ThemeColors } from 'xmermaid';
+import { encodeShareState, exportDiagram, type ExportRequest } from '@evangwt/xmermaid/editor';
+import { analyzeSupport, type ArrowStyle, type CurveStyle, type SourceRange, type ThemeColors } from '@evangwt/xmermaid';
 import type { PreviewRenderer, PreviewSnapshot } from './preview-runtime';
 import { PreviewRuntime } from './preview-runtime';
 import type { WorkspaceCacheState } from './workspace-cache';

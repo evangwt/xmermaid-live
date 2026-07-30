@@ -5,7 +5,7 @@ import {
   type CurveStyle,
   type RenderTheme,
   type ThemeColors,
-} from 'xmermaid';
+} from '@evangwt/xmermaid';
 
 export type WorkspaceTheme = 'dark' | 'light';
 

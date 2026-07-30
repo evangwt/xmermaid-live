@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DARK_THEME, LIGHT_THEME, XMermaidError, type RenderResult, type XMermaidDiagnostic } from 'xmermaid';
+import { DARK_THEME, LIGHT_THEME, XMermaidError, type RenderResult, type XMermaidDiagnostic } from '@evangwt/xmermaid';
 import { themeSignature } from '../src/theme';
 import {
   PreviewRuntime,

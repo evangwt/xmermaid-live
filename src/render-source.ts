@@ -1,4 +1,4 @@
-import { XMermaid } from 'xmermaid';
+import { XMermaid } from '@evangwt/xmermaid';
 import type { PreviewRenderer } from './preview-runtime';
 
 export function createRenderSource(): PreviewRenderer {

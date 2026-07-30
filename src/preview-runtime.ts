@@ -1,4 +1,4 @@
-import { XMermaidError, type RenderTheme, type XMermaidDiagnostic } from 'xmermaid';
+import { XMermaidError, type RenderTheme, type XMermaidDiagnostic } from '@evangwt/xmermaid';
 import { themeSignature } from './theme';
 
 export interface PreviewRenderResult {

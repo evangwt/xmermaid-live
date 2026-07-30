@@ -5,7 +5,7 @@ export default defineConfig({
   optimizeDeps: {
     // wasm-bindgen exposes its imports dynamically; Vite's esbuild prebundle
     // removes those callable imports and prevents the runtime from starting.
-    exclude: ['xmermaid'],
+    exclude: ['@evangwt/xmermaid'],
   },
   test: {
     css: true,

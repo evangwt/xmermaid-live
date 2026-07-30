@@ -1,4 +1,4 @@
-import { DARK_THEME, LIGHT_THEME } from 'xmermaid';
+import { DARK_THEME, LIGHT_THEME } from '@evangwt/xmermaid';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_THEME_PREFERENCES,

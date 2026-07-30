@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DARK_THEME, type RenderTheme } from 'xmermaid';
-import { decodeShareState, type ExportRequest } from 'xmermaid/editor';
+import { DARK_THEME, type RenderTheme } from '@evangwt/xmermaid';
+import { decodeShareState, type ExportRequest } from '@evangwt/xmermaid/editor';
 import { mountApp, type MountedApp } from '../src/app';
 import type { PreviewRenderResult, PreviewRenderer } from '../src/preview-runtime';
 import '../src/styles.css';
@@ -277,7 +277,7 @@ describe('mountApp', () => {
 
   it('does not duplicate a structured render failure with a generic diagnostic', async () => {
     vi.useFakeTimers();
-    const failure = new (await import('xmermaid')).XMermaidError('PARSE_ERROR', 'bad source', undefined, [{
+    const failure = new (await import('@evangwt/xmermaid')).XMermaidError('PARSE_ERROR', 'bad source', undefined, [{
       code: 'parse_error',
       message: 'bad source',
       severity: 'error',
