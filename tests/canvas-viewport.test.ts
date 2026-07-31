@@ -3,6 +3,7 @@ import {
   MAX_CANVAS_SCALE,
   MIN_CANVAS_SCALE,
   fitCanvasViewport,
+  formatCanvasZoom,
   panCanvasViewport,
   viewportForDiagram,
   viewportTransform,
@@ -14,16 +15,32 @@ const content = { width: 800, height: 400 };
 const container = { width: 420, height: 300 };
 
 describe('canvas viewport', () => {
+  it('formats active scale as a visible percentage', () => {
+    expect(formatCanvasZoom({ mode: 'fit', scale: .675, offsetX: 0, offsetY: 0 })).toBe('68%');
+    expect(formatCanvasZoom({ mode: 'manual', scale: 1, offsetX: 0, offsetY: 0 })).toBe('100%');
+  });
+
   it('fits content inside the available canvas with centred offsets', () => {
     expect(fitCanvasViewport(content, container)).toEqual({
       mode: 'fit', scale: .495, offsetX: 12, offsetY: 51,
     });
   });
 
-  it('clamps manual zoom to the supported range', () => {
+  it('keeps an extremely wide diagram fully visible in fit mode', () => {
+    expect(fitCanvasViewport({ width: 4_000, height: 120 }, { width: 400, height: 300 })).toEqual({
+      mode: 'fit', scale: .094, offsetX: 12, offsetY: 144.36,
+    });
+  });
+
+  it('clamps manual zoom to the greater of a complete fit and the supported range', () => {
     const fit = fitCanvasViewport(content, container);
     expect(zoomCanvasViewport(fit, content, container, 99).scale).toBe(MAX_CANVAS_SCALE);
-    expect(zoomCanvasViewport(fit, content, container, .01).scale).toBe(MIN_CANVAS_SCALE);
+    expect(zoomCanvasViewport(fit, content, container, .01)).toEqual(fit);
+
+    const wideContent = { width: 4_000, height: 120 };
+    const wideFit = fitCanvasViewport(wideContent, container);
+    expect(wideFit.scale).toBeLessThan(MIN_CANVAS_SCALE);
+    expect(zoomCanvasViewport(wideFit, wideContent, container, .01)).toEqual(wideFit);
   });
 
   it('keeps the content below a pointer stable while zooming there', () => {

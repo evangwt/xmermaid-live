@@ -16,6 +16,11 @@ export const MIN_CANVAS_SCALE = .25;
 export const MAX_CANVAS_SCALE = 4;
 
 const FIT_PADDING = 12;
+const MIN_FIT_SCALE = .01;
+
+export function formatCanvasZoom(value: CanvasViewport): string {
+  return `${Math.round(value.scale * 100)}%`;
+}
 
 export function fitCanvasViewport(content: CanvasSize, container: CanvasSize): CanvasViewport {
   if (!hasSize(content) || !hasSize(container)) {
@@ -24,7 +29,7 @@ export function fitCanvasViewport(content: CanvasSize, container: CanvasSize): C
 
   const width = Math.max(0, container.width - FIT_PADDING * 2);
   const height = Math.max(0, container.height - FIT_PADDING * 2);
-  const scale = clamp(Math.min(width / content.width, height / content.height), MIN_CANVAS_SCALE, MAX_CANVAS_SCALE);
+  const scale = clamp(Math.min(width / content.width, height / content.height), MIN_FIT_SCALE, MAX_CANVAS_SCALE);
 
   return {
     mode: 'fit',
@@ -54,11 +59,14 @@ export function zoomCanvasViewportAt(
   anchor: { x: number; y: number },
 ): CanvasViewport {
   const current = isViewport(value) ? value : fitCanvasViewport(content, container);
-  const scale = clamp(nextScale, MIN_CANVAS_SCALE, MAX_CANVAS_SCALE);
+  const fit = fitCanvasViewport(content, container);
+  const scale = clamp(nextScale, Math.min(MIN_CANVAS_SCALE, fit.scale), MAX_CANVAS_SCALE);
 
   if (!hasSize(content) || !hasSize(container)) {
     return { mode: 'manual', scale: round(scale), offsetX: 0, offsetY: 0 };
   }
+
+  if (scale <= fit.scale) return fit;
 
   const anchorX = finiteOrZero(anchor.x);
   const anchorY = finiteOrZero(anchor.y);

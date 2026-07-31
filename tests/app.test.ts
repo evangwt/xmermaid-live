@@ -65,12 +65,41 @@ function previewResult(label: string): PreviewRenderResult {
 }
 
 describe('mountApp', () => {
+  it('renders English accessible names when an English locale is supplied', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, initialLocale: 'en', renderer });
+
+    expect(document.documentElement.lang).toBe('en');
+    expect(document.querySelector<HTMLSelectElement>('[data-locale-select]')?.value).toBe('en');
+    expect(document.querySelector('[data-preview-canvas]')?.getAttribute('aria-label')).toBe('Diagram canvas');
+    expect(document.querySelector<HTMLTextAreaElement>('[data-document-input]')?.getAttribute('aria-label')).toBe('Full document');
+    expect(document.querySelector('[data-preview-fullscreen]')?.getAttribute('aria-label')).toBe('Fullscreen preview');
+  });
+
+  it('switches UI copy and persists the selection without changing workspace content', () => {
+    const persistLocale = vi.fn();
+    mounted = mountApp(root(), { initialText: DOCUMENT, initialLocale: 'en', persistLocale, renderer });
+    const documentInput = document.querySelector<HTMLTextAreaElement>('[data-document-input]')!;
+    const secondDiagram = document.querySelectorAll<HTMLButtonElement>('[data-diagram-item]')[1]!;
+    const localeSelect = document.querySelector<HTMLSelectElement>('[data-locale-select]')!;
+
+    secondDiagram.click();
+    localeSelect.value = 'zh-CN';
+    localeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(persistLocale).toHaveBeenCalledWith('zh-CN');
+    expect(document.documentElement.lang).toBe('zh-CN');
+    expect(documentInput.value).toBe(DOCUMENT);
+    expect(document.querySelectorAll<HTMLButtonElement>('[data-diagram-item]')[1]?.getAttribute('aria-current')).toBe('true');
+    expect(document.querySelector('[data-preview-canvas]')?.getAttribute('aria-label')).toBe('图表画布');
+    expect(documentInput.getAttribute('aria-label')).toBe('完整文本');
+  });
+
   it('presents the workspace as a focused diagram studio', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
 
     expect(document.querySelector('.brand')?.textContent).toContain('DIAGRAM STUDIO');
-    expect(document.querySelector('[data-preview-canvas]')?.getAttribute('aria-label')).toBe('图表画布');
-    expect(document.querySelector('.preview-actions')?.getAttribute('aria-label')).toBe('画布视图控制');
+    expect(document.querySelector('[data-preview-canvas]')?.getAttribute('aria-label')).toBe('Diagram canvas');
+    expect(document.querySelector('.preview-actions')?.getAttribute('aria-label')).toBe('Canvas view controls');
   });
 
   it('marks the canvas-led Aurora hierarchy without changing accessible controls', () => {
@@ -79,7 +108,7 @@ describe('mountApp', () => {
     const shell = document.querySelector<HTMLElement>('.app-shell')!;
     expect(shell.dataset.studioLayout).toBe('aurora');
     expect(document.querySelector<HTMLElement>('[data-preview-canvas]')?.dataset.previewPriority).toBe('primary');
-    expect(document.querySelector('[data-preview-fit]')?.getAttribute('aria-label')).toBe('适配预览');
+    expect(document.querySelector('[data-preview-fit]')?.getAttribute('aria-label')).toBe('Fit preview');
   });
 
   it('extracts a pasted document into a switchable diagram list', async () => {
@@ -114,10 +143,35 @@ describe('mountApp', () => {
     const item = document.querySelector<HTMLButtonElement>('[data-diagram-item]')!;
     expect(item.dataset.diagramType).toBe('sequence');
     expect(item.dataset.diagramStatus).toBe('partial');
-    expect(item.textContent).toContain('部分支持');
+    expect(item.textContent).toContain('Partially supported');
     expect(document.querySelector('[data-capability-recovery]')).not.toBeNull();
     document.querySelector<HTMLButtonElement>('[data-copy-repro]')!.click();
     expect(writeText).toHaveBeenCalledWith('sequenceDiagram\n  A->>B: Hello');
+  });
+
+  it('falls back to legacy copy when the Clipboard API is unavailable', async () => {
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    const execCommand = Object.getOwnPropertyDescriptor(document, 'execCommand');
+    const copy = vi.fn(() => true);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: copy });
+
+    try {
+      mounted = mountApp(root(), {
+        initialText: '```mermaid\nsequenceDiagram\n  A->>B: Hello\n```',
+        renderer,
+      });
+      document.querySelector<HTMLButtonElement>('[data-copy-repro]')!.click();
+      await Promise.resolve();
+
+      expect(copy).toHaveBeenCalledWith('copy');
+      expect(document.querySelector('[data-action-status]')?.textContent).toContain('copied');
+    } finally {
+      if (clipboard) Object.defineProperty(navigator, 'clipboard', clipboard);
+      else Reflect.deleteProperty(navigator, 'clipboard');
+      if (execCommand) Object.defineProperty(document, 'execCommand', execCommand);
+      else Reflect.deleteProperty(document, 'execCommand');
+    }
   });
 
   it('marks the native XY chart subset as partial instead of planned', () => {
@@ -200,7 +254,7 @@ describe('mountApp', () => {
     await vi.runAllTimersAsync();
 
     expect(document.querySelector('[data-preview] svg')).toBe(firstSvg);
-    expect(document.querySelector('[data-capability-recovery]')?.textContent).toContain('部分支持');
+    expect(document.querySelector('[data-capability-recovery]')?.textContent).toContain('Partially supported');
   });
 
   it('writes focused source edits back into the complete document', () => {
@@ -269,10 +323,38 @@ describe('mountApp', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer: warningRenderer, renderDelayMs: 10 });
     await vi.runAllTimersAsync();
 
-    expect(document.querySelector('[data-preview-status]')?.textContent).toBe('已更新');
+    expect(document.querySelector('[data-preview-status]')?.textContent).toBe('Updated');
     expect(document.querySelector('[data-diagnostics]')?.textContent).toContain('unsupported_syntax');
-    expect(document.querySelector('[data-diagnostics]')?.textContent).toContain('图内第 2 行');
+    expect(document.querySelector('[data-diagnostics]')?.textContent).toContain('Line 2 in diagram');
     expect(document.querySelector('[data-preview] svg')).not.toBeNull();
+  });
+
+  it('identifies the selected diagram, its local line, and its document line for diagnostics', async () => {
+    vi.useFakeTimers();
+    const warningRenderer = async (source: string) => ({
+      ...await renderer(source),
+      diagnostics: [{
+        code: 'parse_error' as const,
+        message: 'bad source',
+        severity: 'error' as const,
+        range: {
+          startOffset: 0,
+          endOffset: 1,
+          startLine: 2,
+          startColumn: 1,
+          endLine: 2,
+          endColumn: 2,
+        },
+      }],
+    });
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer: warningRenderer, renderDelayMs: 10 });
+    document.querySelectorAll<HTMLButtonElement>('[data-diagram-item]')[1]!.click();
+    await vi.runAllTimersAsync();
+
+    const diagnostics = document.querySelector('[data-diagnostics]')?.textContent;
+    expect(diagnostics).toContain('Diagram 2');
+    expect(diagnostics).toContain('Line 2 in diagram');
+    expect(diagnostics).toContain('Document line 8');
   });
 
   it('does not duplicate a structured render failure with a generic diagnostic', async () => {
@@ -311,7 +393,7 @@ describe('mountApp', () => {
     document.querySelector<HTMLButtonElement>('[data-share]')?.click();
 
     expect(window.location.hash).toBe('');
-    expect(document.querySelector('[data-action-status]')?.textContent).toContain('过长');
+    expect(document.querySelector('[data-action-status]')?.textContent).toContain('too long');
   });
 
   it('exports SVG only while the current preview matches the current source', async () => {
@@ -379,7 +461,7 @@ describe('mountApp', () => {
     await Promise.resolve();
 
     const status = document.querySelector<HTMLElement>('[data-action-status]')!;
-    expect(status.textContent).toBe('导出失败：<img src=x onerror=alert(1)>');
+    expect(status.textContent).toBe('Export failed: <img src=x onerror=alert(1)>');
     expect(status.querySelector('img')).toBeNull();
   });
 
@@ -429,7 +511,7 @@ describe('mountApp', () => {
 
     expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.mobilePanel).toBe('preview');
     expect(previewButton.getAttribute('aria-pressed')).toBe('true');
-    expect(document.querySelector<HTMLTextAreaElement>('[data-document-input]')?.getAttribute('aria-label')).toBe('完整文本');
+    expect(document.querySelector<HTMLTextAreaElement>('[data-document-input]')?.getAttribute('aria-label')).toBe('Full document');
   });
 
   it('renders two keyboard-operable desktop dividers and persists only layout changes', () => {
@@ -457,10 +539,10 @@ describe('mountApp', () => {
     collapse.click();
     expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.listCollapsed).toBe('true');
     const restore = document.querySelector<HTMLButtonElement>('[data-list-restore]')!;
-    expect(restore.getAttribute('aria-label')).toBe('展开图表列表');
+    expect(restore.getAttribute('aria-label')).toBe('Expand diagram list');
     restore.click();
     expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.listCollapsed).toBe('false');
-    expect(document.querySelector('[data-diagram-item][aria-current="true"]')?.textContent).toContain('图表 2');
+    expect(document.querySelector('[data-diagram-item][aria-current="true"]')?.textContent).toContain('Diagram 2');
   });
 
   it('changes only the preview viewport when zoom and fit controls are used', async () => {
@@ -484,6 +566,55 @@ describe('mountApp', () => {
     expect(document.querySelector<HTMLElement>('[data-preview-stage]')?.dataset.viewportMode).toBe('fit');
   });
 
+  it('navigates adjacent diagrams from preview without moving editor focus', async () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer, renderDelayMs: 0 });
+    const editor = document.querySelector<HTMLTextAreaElement>('[data-document-input]')!;
+    editor.focus();
+
+    const previous = document.querySelector<HTMLButtonElement>('[data-preview-previous]')!;
+    const next = document.querySelector<HTMLButtonElement>('[data-preview-next]')!;
+    expect(previous.disabled).toBe(true);
+    expect(next.disabled).toBe(false);
+
+    next.click();
+    await Promise.resolve();
+
+    expect(document.querySelector('[data-preview-position]')?.textContent).toBe('2 / 2');
+    expect(document.activeElement).toBe(editor);
+    expect(next.disabled).toBe(true);
+  });
+
+  it('exposes the active viewport scale in the preview canvas', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    const zoomValue = document.querySelector<HTMLElement>('[data-preview-zoom-value]')!;
+    expect(zoomValue.textContent).toMatch(/%$/);
+
+    document.querySelector<HTMLButtonElement>('[data-preview-zoom="in"]')!.click();
+    expect(zoomValue.textContent).toMatch(/%$/);
+    expect(zoomValue.textContent).not.toBe('100%');
+  });
+
+  it('labels the rendered SVG and expands its viewBox when renderer content overflows it', async () => {
+    vi.useFakeTimers();
+    const overflowingRenderer: PreviewRenderer = async source => {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.dataset.source = source;
+      svg.setAttribute('viewBox', '0 0 920 560');
+      Object.defineProperty(svg, 'getBBox', {
+        configurable: true,
+        value: () => ({ x: -90, y: 0, width: 1_040, height: 560 }),
+      });
+      return { svg, diagnostics: [] };
+    };
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer: overflowingRenderer, renderDelayMs: 0 });
+    await vi.runAllTimersAsync();
+
+    const svg = document.querySelector<SVGSVGElement>('[data-preview] svg')!;
+    expect(svg.getAttribute('viewBox')).toBe('-94 -4 1048 568');
+    expect(svg.getAttribute('role')).toBe('img');
+    expect(svg.getAttribute('aria-label')).toBe('Diagram 1: flowchart');
+  });
+
   it('zooms the preview with an unmodified mouse wheel and keeps the minimap in sync', async () => {
     vi.useFakeTimers();
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer, renderDelayMs: 0 });
@@ -498,6 +629,27 @@ describe('mountApp', () => {
     expect(document.querySelector('[data-preview-minimap-viewport]')).not.toBeNull();
   });
 
+  it('suppresses document selection only while preview panning is active', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    const canvas = document.querySelector<HTMLElement>('[data-preview-canvas]')!;
+    Object.defineProperties(canvas, {
+      setPointerCapture: { configurable: true, value: vi.fn() },
+      hasPointerCapture: { configurable: true, value: vi.fn(() => true) },
+      releasePointerCapture: { configurable: true, value: vi.fn() },
+    });
+    const start = new MouseEvent('pointerdown', { bubbles: true, button: 0 });
+    Object.defineProperty(start, 'pointerId', { configurable: true, value: 1 });
+    canvas.dispatchEvent(start);
+
+    expect(document.body.classList.contains('canvas-panning')).toBe(true);
+
+    const end = new MouseEvent('pointerup', { bubbles: true, button: 0 });
+    Object.defineProperty(end, 'pointerId', { configurable: true, value: 1 });
+    canvas.dispatchEvent(end);
+
+    expect(document.body.classList.contains('canvas-panning')).toBe(false);
+  });
+
   it('uses application maximize when browser fullscreen rejects', async () => {
     Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: null });
     Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
@@ -509,10 +661,10 @@ describe('mountApp', () => {
     await Promise.resolve();
 
     expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.previewMaximized).toBe('true');
-    expect(document.querySelector('[data-action-status]')?.textContent).toContain('应用内最大化');
+    expect(document.querySelector('[data-action-status]')?.textContent).toContain('in-app maximized preview');
     expect(document.querySelector('[data-preview-maximize-exit]')).toBeNull();
     const control = document.querySelector<HTMLButtonElement>('[data-preview-fullscreen]')!;
-    expect(control.getAttribute('aria-label')).toBe('退出最大化预览');
+    expect(control.getAttribute('aria-label')).toBe('Exit maximized preview');
     control.click();
     expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.previewMaximized).toBeUndefined();
   });
@@ -621,6 +773,17 @@ describe('mountApp', () => {
     expect(document.activeElement).toBe(editor);
   });
 
+  it('closes an open desktop style inspector when Escape is pressed from its opener', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+    const opener = document.querySelector<HTMLButtonElement>('[data-style-open]')!;
+    opener.click();
+
+    opener.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.inspectorOpen).not.toBe('true');
+    expect(document.activeElement).toBe(opener);
+  });
+
   it('keeps the style dialog modal on compact layouts and returns focus to its opener', () => {
     window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() });
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
@@ -654,7 +817,7 @@ describe('mountApp', () => {
     const dialog = document.querySelector<HTMLDialogElement>('[data-style-dialog]')!;
     const content = document.querySelector<HTMLElement>('[data-style-content]')!;
     expect(dialog.getAttribute('aria-labelledby')).toBe('style-title');
-    expect(content.querySelector<HTMLButtonElement>('[data-style-close]')?.getAttribute('aria-label')).toBe('关闭图表样式');
+    expect(content.querySelector<HTMLButtonElement>('[data-style-close]')?.getAttribute('aria-label')).toBe('Close diagram style');
     expect(content.querySelectorAll<HTMLInputElement>('[data-style-color]')).toHaveLength(9);
     expect(content.querySelectorAll<HTMLInputElement>('[data-style-number]')).toHaveLength(4);
     expect(content.querySelectorAll<HTMLButtonElement>('[data-style-option]')).toHaveLength(3);
@@ -668,10 +831,10 @@ describe('mountApp', () => {
   it('applies distinct semantic workbench themes without changing panel geometry', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
     const shell = document.querySelector<HTMLElement>('.app-shell')!;
-    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#08090f');
+    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#08090b');
 
     document.querySelector<HTMLButtonElement>('[data-theme-option="light"]')!.click();
-    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#f4f2ed');
+    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#eceef0');
     expect(getComputedStyle(document.querySelector<HTMLElement>('.workspace')!).getPropertyValue('--list-width').trim()).toBe('168px');
   });
 });

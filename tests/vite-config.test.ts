@@ -6,6 +6,6 @@ describe('Vite development configuration', () => {
   it('does not prebundle the WASM-backed xmermaid runtime', async () => {
     const config = await resolveConfig({}, 'serve', 'development');
 
-    expect(config.optimizeDeps.exclude).toContain('xmermaid');
+    expect(config.optimizeDeps.exclude).toContain('@evangwt/xmermaid');
   });
 });

@@ -20,8 +20,12 @@ import {
   type WorkspaceLayoutPreferences,
 } from './layout-preferences';
 import { icon } from './icons';
+import { createTranslator, parseLocale, type Locale, type MessageKey } from './i18n';
+import { createCodeEditor, type CodeEditor } from './code-editor';
+import { normalizePreviewSvg } from './preview-svg';
 import {
   fitCanvasViewport,
+  formatCanvasZoom,
   panCanvasViewport,
   viewportForDiagram,
   viewportTransform,
@@ -54,6 +58,8 @@ export interface AppOptions {
   persistDocumentText?: (text: string) => void;
   initialViewports?: Record<string, CanvasViewport>;
   persistWorkspaceState?: (state: WorkspaceCacheState) => void;
+  initialLocale?: Locale;
+  persistLocale?: (locale: Locale) => void;
 }
 
 export interface MountedApp {
@@ -70,6 +76,7 @@ const SHELL = `
       </div>
       <div class="topbar-actions" data-toolbar>
         <span class="action-status" data-action-status aria-live="polite"></span>
+        <select data-locale-select aria-label="界面语言"><option value="zh-CN">简体中文</option><option value="en">English</option></select>
         <div class="theme-switch" role="group" aria-label="工作台主题">
           <button type="button" data-theme-option="dark" aria-pressed="true">深色</button>
           <button type="button" data-theme-option="light" aria-pressed="false">浅色</button>
@@ -87,9 +94,9 @@ const SHELL = `
         <details class="mobile-more-menu" data-mobile-more>
           <summary aria-label="更多操作" title="更多操作">${icon('more')}<span class="sr-only">更多操作</span></summary>
           <div class="mobile-more-options">
-            <button type="button" data-mobile-share>${icon('share')}分享</button>
-            <button type="button" data-mobile-export="svg" disabled>${icon('download')}下载 SVG</button>
-            <button type="button" data-mobile-export="png" disabled>${icon('download')}下载 PNG</button>
+            <button type="button" data-mobile-share>${icon('share')}<span data-mobile-share-label>分享</span></button>
+            <button type="button" data-mobile-export="svg" disabled>${icon('download')}<span data-mobile-export-label="svg">下载 SVG</span></button>
+            <button type="button" data-mobile-export="png" disabled>${icon('download')}<span data-mobile-export-label="png">下载 PNG</span></button>
           </div>
         </details>
       </div>
@@ -106,19 +113,21 @@ const SHELL = `
           <button type="button" role="tab" id="document-editor-tab" aria-controls="document-editor-panel" data-editor-tab="document">完整文本</button>
           <button type="button" role="tab" id="diagram-editor-tab" aria-controls="diagram-editor-panel" data-editor-tab="diagram">当前图表</button>
         </div>
-        <label class="editor-surface" id="document-editor-panel" role="tabpanel" aria-labelledby="document-editor-tab" data-editor-surface="document">
+        <div class="editor-surface" id="document-editor-panel" role="tabpanel" aria-labelledby="document-editor-tab" data-editor-surface="document">
           <span class="sr-only">完整文本</span>
-          <textarea data-document-input aria-label="完整文本" spellcheck="false"></textarea>
-        </label>
-        <label class="editor-surface" id="diagram-editor-panel" role="tabpanel" aria-labelledby="diagram-editor-tab" data-editor-surface="diagram" hidden>
+          <textarea class="editor-proxy" data-document-input aria-hidden="true" tabindex="-1" spellcheck="false"></textarea>
+          <div class="code-editor-host" data-document-editor></div>
+        </div>
+        <div class="editor-surface" id="diagram-editor-panel" role="tabpanel" aria-labelledby="diagram-editor-tab" data-editor-surface="diagram" hidden>
           <span class="sr-only">当前图表</span>
-          <textarea data-diagram-input aria-label="当前图表" spellcheck="false"></textarea>
-        </label>
+          <textarea class="editor-proxy" data-diagram-input aria-hidden="true" tabindex="-1" spellcheck="false"></textarea>
+          <div class="code-editor-host" data-diagram-editor></div>
+        </div>
       </section>
       <div class="workspace-divider" data-workspace-divider="editor" role="separator" aria-orientation="vertical" aria-label="调整编辑器与预览宽度" tabindex="0"></div>
       <section class="preview-panel" data-panel="preview" aria-label="实时预览">
-        <div class="panel-heading"><h2>预览</h2><span data-preview-status></span><div class="preview-actions" role="group" aria-label="画布视图控制"><button type="button" class="quiet-icon-button" data-preview-zoom="out" aria-label="缩小预览" title="缩小预览">${icon('minus')}</button><button type="button" class="quiet-icon-button" data-preview-fit aria-label="适配预览" title="适配预览">${icon('fit')}</button><button type="button" class="quiet-icon-button" data-preview-zoom="in" aria-label="放大预览" title="放大预览">${icon('plus')}</button><button type="button" class="quiet-icon-button" data-preview-fullscreen aria-label="全屏预览" title="全屏预览">${icon('maximize')}</button></div></div>
-        <div class="preview-content-grid"><div class="preview-canvas" data-preview-canvas data-preview-priority="primary" aria-label="图表画布"><div class="preview-stage" data-preview-stage data-viewport-mode="fit" data-preview></div><div class="preview-minimap" data-preview-minimap aria-hidden="true"></div></div><aside class="preview-inspector" data-style-desktop-host aria-label="图表样式"><div class="style-inspector-content" data-style-content><header class="style-inspector-header"><h2 id="style-title">图表样式</h2><button type="button" class="icon-button" data-style-close aria-label="关闭图表样式"><span class="style-close-desktop">×</span><span class="style-close-compact">完成</span></button></header><div class="style-drawer-body" data-style-body><fieldset><legend>主题</legend><div class="theme-switch theme-switch-drawer" role="group" aria-label="图表基础主题"><button type="button" data-theme-option="dark" aria-pressed="true">深色</button><button type="button" data-theme-option="light" aria-pressed="false">浅色</button></div></fieldset><fieldset><legend>颜色</legend><div class="color-controls"><label class="style-control"><span>画布</span><input type="color" data-style-color="background"></label><label class="style-control"><span>节点</span><input type="color" data-style-color="nodeFill"></label><label class="style-control"><span>节点描边</span><input type="color" data-style-color="nodeStroke"></label><label class="style-control"><span>连线</span><input type="color" data-style-color="edgeStroke"></label><label class="style-control"><span>箭头颜色</span><input type="color" data-style-color="arrowFill"></label></div><details data-style-advanced-colors><summary>更多颜色</summary><div class="color-controls"><label class="style-control"><span>节点文字</span><input type="color" data-style-color="nodeText"></label><label class="style-control"><span>连线标签</span><input type="color" data-style-color="edgeLabel"></label><label class="style-control"><span>子图</span><input type="color" data-style-color="subgraphFill"></label><label class="style-control"><span>子图描边</span><input type="color" data-style-color="subgraphStroke"></label></div></details></fieldset><fieldset><legend>几何</legend><div class="style-control style-control-stack" data-style-row="curveStyle"><span>曲线</span><div class="segmented-control" role="group" aria-label="曲线样式"><button type="button" data-style-option="bezier" aria-pressed="true">贝塞尔</button><button type="button" data-style-option="step" aria-pressed="false">折线</button><button type="button" data-style-option="straight" aria-pressed="false">直线</button></div></div><label class="style-control" data-style-row="arrowStyle"><span>箭头类型</span><select data-style-select="arrowStyle"><option value="filled">实心</option><option value="triangle">三角</option><option value="open">开放</option><option value="circle">圆形</option><option value="cross">交叉</option></select></label><label class="style-control range-control" data-style-row="edgeGap"><span>箭头与节点间距</span><output data-style-output="edgeGap"></output><input type="range" min="0" max="24" step="1" aria-label="箭头与节点间距" data-style-number="edgeGap"></label><label class="style-control range-control" data-style-row="arrowSize"><span>箭头大小</span><output data-style-output="arrowSize"></output><input type="range" min="4" max="32" step="1" aria-label="箭头大小" data-style-number="arrowSize"></label><label class="style-control range-control" data-style-row="nodeBorderRadius"><span>节点圆角</span><output data-style-output="nodeBorderRadius"></output><input type="range" min="0" max="24" step="1" aria-label="节点圆角" data-style-number="nodeBorderRadius"></label></fieldset><details data-style-advanced-text><summary>文字与字体</summary><label class="style-control" data-style-row="fontFamily"><span>字体</span><select data-style-select="fontFamily"><option value="sans-serif">系统字体</option><option value="Inter, ui-sans-serif, system-ui, sans-serif">界面字体</option><option value="ui-monospace, SFMono-Regular, Consolas, monospace">等宽字体</option></select></label><label class="style-control range-control" data-style-row="fontSize"><span>字号</span><output data-style-output="fontSize"></output><input type="range" min="10" max="24" step="1" aria-label="字号" data-style-number="fontSize"></label></details></div><footer class="style-drawer-footer" data-style-footer><button type="button" data-style-reset>重置图表样式</button></footer></div></aside></div>
+        <div class="panel-heading"><h2>预览</h2><span data-preview-status></span><div class="preview-navigation" role="group"><button type="button" class="quiet-icon-button" data-preview-previous>${icon('chevron-left')}</button><span data-preview-position></span><button type="button" class="quiet-icon-button" data-preview-next>${icon('chevron-right')}</button></div></div>
+        <div class="preview-content-grid"><div class="preview-canvas" data-preview-canvas data-preview-priority="primary" aria-label="图表画布"><div class="preview-actions preview-canvas-controls" data-preview-controls role="group" aria-label="画布视图控制"><output data-preview-zoom-value>100%</output><button type="button" class="quiet-icon-button" data-preview-zoom="out" aria-label="缩小预览" title="缩小预览">${icon('minus')}</button><button type="button" class="quiet-icon-button" data-preview-fit aria-label="适配预览" title="适配预览">${icon('fit')}</button><button type="button" class="quiet-icon-button" data-preview-zoom="in" aria-label="放大预览" title="放大预览">${icon('plus')}</button><button type="button" class="quiet-icon-button" data-preview-fullscreen aria-label="全屏预览" title="全屏预览">${icon('maximize')}</button></div><div class="preview-stage" data-preview-stage data-viewport-mode="fit" data-preview></div><div class="preview-minimap" data-preview-minimap aria-hidden="true"></div></div><aside class="preview-inspector" data-style-desktop-host aria-label="图表样式"><div class="style-inspector-content" data-style-content><header class="style-inspector-header"><h2 id="style-title">图表样式</h2><button type="button" class="icon-button" data-style-close aria-label="关闭图表样式"><span class="style-close-desktop">×</span><span class="style-close-compact">完成</span></button></header><div class="style-drawer-body" data-style-body><fieldset><legend>主题</legend><div class="theme-switch theme-switch-drawer" role="group" aria-label="图表基础主题"><button type="button" data-theme-option="dark" aria-pressed="true">深色</button><button type="button" data-theme-option="light" aria-pressed="false">浅色</button></div></fieldset><fieldset><legend>颜色</legend><div class="color-controls"><label class="style-control"><span>画布</span><input type="color" data-style-color="background"></label><label class="style-control"><span>节点</span><input type="color" data-style-color="nodeFill"></label><label class="style-control"><span>节点描边</span><input type="color" data-style-color="nodeStroke"></label><label class="style-control"><span>连线</span><input type="color" data-style-color="edgeStroke"></label><label class="style-control"><span>箭头颜色</span><input type="color" data-style-color="arrowFill"></label></div><details data-style-advanced-colors><summary>更多颜色</summary><div class="color-controls"><label class="style-control"><span>节点文字</span><input type="color" data-style-color="nodeText"></label><label class="style-control"><span>连线标签</span><input type="color" data-style-color="edgeLabel"></label><label class="style-control"><span>子图</span><input type="color" data-style-color="subgraphFill"></label><label class="style-control"><span>子图描边</span><input type="color" data-style-color="subgraphStroke"></label></div></details></fieldset><fieldset><legend>几何</legend><div class="style-control style-control-stack" data-style-row="curveStyle"><span>曲线</span><div class="segmented-control" role="group" aria-label="曲线样式"><button type="button" data-style-option="bezier" aria-pressed="true">贝塞尔</button><button type="button" data-style-option="step" aria-pressed="false">折线</button><button type="button" data-style-option="straight" aria-pressed="false">直线</button></div></div><label class="style-control" data-style-row="arrowStyle"><span>箭头类型</span><select data-style-select="arrowStyle"><option value="filled">实心</option><option value="triangle">三角</option><option value="open">开放</option><option value="circle">圆形</option><option value="cross">交叉</option></select></label><label class="style-control range-control" data-style-row="edgeGap"><span>箭头与节点间距</span><output data-style-output="edgeGap"></output><input type="range" min="0" max="24" step="1" aria-label="箭头与节点间距" data-style-number="edgeGap"></label><label class="style-control range-control" data-style-row="arrowSize"><span>箭头大小</span><output data-style-output="arrowSize"></output><input type="range" min="4" max="32" step="1" aria-label="箭头大小" data-style-number="arrowSize"></label><label class="style-control range-control" data-style-row="nodeBorderRadius"><span>节点圆角</span><output data-style-output="nodeBorderRadius"></output><input type="range" min="0" max="24" step="1" aria-label="节点圆角" data-style-number="nodeBorderRadius"></label></fieldset><details data-style-advanced-text><summary>文字与字体</summary><label class="style-control" data-style-row="fontFamily"><span>字体</span><select data-style-select="fontFamily"><option value="sans-serif">系统字体</option><option value="Inter, ui-sans-serif, system-ui, sans-serif">界面字体</option><option value="ui-monospace, SFMono-Regular, Consolas, monospace">等宽字体</option></select></label><label class="style-control range-control" data-style-row="fontSize"><span>字号</span><output data-style-output="fontSize"></output><input type="range" min="10" max="24" step="1" aria-label="字号" data-style-number="fontSize"></label></details></div><footer class="style-drawer-footer" data-style-footer><button type="button" data-style-reset>重置图表样式</button></footer></div></aside></div>
       </section>
     </div>
     <section class="diagnostics diagnostics-bar" data-diagnostics aria-live="polite" aria-atomic="true"></section>
@@ -134,6 +143,10 @@ const MAX_SHARE_HASH_LENGTH = 50_000;
 const COMPACT_LAYOUT_QUERY = '(max-width: 1024px)';
 
 export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
+  const originalDocumentLanguage = document.documentElement.lang;
+  let locale = options.initialLocale ?? 'en';
+  let translator = createTranslator(locale);
+  const t = (key: MessageKey, values?: Record<string, string | number>) => translator.text(key, values);
   root.innerHTML = SHELL;
   const shell = required<HTMLElement>(root, '.app-shell');
   const workspace = required<HTMLElement>(root, '.workspace');
@@ -141,6 +154,8 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   const count = required<HTMLElement>(root, '[data-diagram-count]');
   const documentInput = required<HTMLTextAreaElement>(root, '[data-document-input]');
   const diagramInput = required<HTMLTextAreaElement>(root, '[data-diagram-input]');
+  const documentEditorHost = required<HTMLElement>(root, '[data-document-editor]');
+  const diagramEditorHost = required<HTMLElement>(root, '[data-diagram-editor]');
   const preview = required<HTMLElement>(root, '[data-preview]');
   const previewCanvas = required<HTMLElement>(root, '[data-preview-canvas]');
   const previewStage = required<HTMLElement>(root, '[data-preview-stage]');
@@ -148,6 +163,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   const previewStatus = required<HTMLElement>(root, '[data-preview-status]');
   const diagnostics = required<HTMLElement>(root, '[data-diagnostics]');
   const actionStatus = required<HTMLElement>(root, '[data-action-status]');
+  const localeSelect = required<HTMLSelectElement>(root, '[data-locale-select]');
   const shareButton = required<HTMLButtonElement>(root, '[data-share]');
   const mobileShareButton = required<HTMLButtonElement>(root, '[data-mobile-share]');
   const exportSvgButton = required<HTMLButtonElement>(root, '[data-export-svg]');
@@ -169,6 +185,10 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   const mobileThemeButton = required<HTMLButtonElement>(root, '[data-mobile-theme]');
   const previewFitButton = required<HTMLButtonElement>(root, '[data-preview-fit]');
   const previewFullscreenButton = required<HTMLButtonElement>(root, '[data-preview-fullscreen]');
+  const previewPreviousButton = required<HTMLButtonElement>(root, '[data-preview-previous]');
+  const previewNextButton = required<HTMLButtonElement>(root, '[data-preview-next]');
+  const previewPosition = required<HTMLElement>(root, '[data-preview-position]');
+  const previewZoomValue = required<HTMLOutputElement>(root, '[data-preview-zoom-value]');
   const previewMinimap = required<HTMLElement>(root, '[data-preview-minimap]');
   const exporter = options.exporter ?? exportDiagram;
   const saveBlob = options.saveBlob ?? downloadBlob;
@@ -176,6 +196,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   let activeEditor: 'document' | 'diagram' = 'document';
   let snapshot: PreviewSnapshot | null = null;
   let renderedListSignature: string | null = null;
+  let listRenderFrame: number | null = null;
   let preferences = cloneThemePreferences(options.initialThemePreferences ?? DEFAULT_THEME_PREFERENCES);
   let effectiveTheme = resolveDiagramTheme(preferences);
   let layoutPreferences = options.initialLayoutPreferences ?? DEFAULT_LAYOUT_PREFERENCES;
@@ -195,27 +216,30 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     },
     options.renderDelayMs,
   );
+  const documentEditor = createSourceEditor(documentEditorHost, state.text, 'markdown', 'editor.document', updateDocumentText);
+  const diagramEditor = createSourceEditor(diagramEditorHost, selectedDiagram(state)?.source ?? '', 'mermaid', 'editor.diagram', updateDiagramSource);
 
   const shareCurrent = () => {
     if (state.text.length > MAX_SHARE_HASH_LENGTH) {
-      actionStatus.textContent = '文本过长，无法生成可靠的分享链接。';
+      actionStatus.textContent = t('status.shareTooLong');
       return;
     }
     try {
       const current = selectedDiagram(state);
       const hash = encodeShareState(state.text, current?.id ?? null);
       if (hash.length > MAX_SHARE_HASH_LENGTH) {
-        actionStatus.textContent = '文本过长，无法生成可靠的分享链接。';
+        actionStatus.textContent = t('status.shareTooLong');
         return;
       }
       window.location.hash = hash;
-      actionStatus.textContent = '分享内容已写入地址栏。';
+      actionStatus.textContent = t('status.shareSuccess');
     } catch (error) {
-      actionStatus.textContent = `生成分享链接失败：${error instanceof Error ? error.message : String(error)}`;
+      actionStatus.textContent = t('status.shareFailed', { message: error instanceof Error ? error.message : String(error) });
     }
   };
   shareButton.addEventListener('click', shareCurrent);
   mobileShareButton.addEventListener('click', shareCurrent);
+  localeSelect.addEventListener('change', () => applyLocale(localeSelect.value));
   exportSvgButton.addEventListener('click', () => void exportCurrent('svg'));
   exportPngButton.addEventListener('click', () => void exportCurrent('png'));
   mobileExportSvgButton.addEventListener('click', () => void exportCurrent('svg'));
@@ -229,9 +253,12 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     placeStyleContent(styleDesktopHost);
     styleOpenButton.focus();
   });
-  styleContent.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && !isCompactLayout()) closeStyleInspector();
-  });
+  const closeDesktopStyleInspectorOnEscape = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape' || isCompactLayout() || shell.dataset.inspectorOpen !== 'true') return;
+    event.preventDefault();
+    closeStyleInspector();
+  };
+  document.addEventListener('keydown', closeDesktopStyleInspectorOnEscape);
   styleResetButton.addEventListener('click', () => {
     applyThemePreferences({ ...preferences, overrides: {} });
   });
@@ -261,6 +288,10 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   }
   previewFitButton.addEventListener('click', refitActiveViewport);
   previewFullscreenButton.addEventListener('click', () => void togglePreviewFullscreen());
+  previewPreviousButton.addEventListener('pointerdown', event => event.preventDefault());
+  previewNextButton.addEventListener('pointerdown', event => event.preventDefault());
+  previewPreviousButton.addEventListener('click', () => selectDiagram((state.selectedIndex ?? 0) - 1));
+  previewNextButton.addEventListener('click', () => selectDiagram((state.selectedIndex ?? -1) + 1));
   previewCanvas.addEventListener('wheel', event => {
     event.preventDefault();
     const bounds = previewCanvas.getBoundingClientRect();
@@ -279,6 +310,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     panningPosition = { x: event.clientX, y: event.clientY };
     previewCanvas.setPointerCapture(event.pointerId);
     previewCanvas.dataset.panning = 'true';
+    document.body.classList.add('canvas-panning');
   });
   previewCanvas.addEventListener('pointermove', event => {
     if (panningPointerId !== event.pointerId || !panningPosition) return;
@@ -297,15 +329,18 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     panningPointerId = null;
     panningPosition = null;
     delete previewCanvas.dataset.panning;
+    document.body.classList.remove('canvas-panning');
   };
   previewCanvas.addEventListener('pointerup', endPan);
   previewCanvas.addEventListener('pointercancel', endPan);
 
   const handleWindowResize = () => {
+    applyLayoutPreferences(layoutPreferences);
     if (activeViewport.mode === 'fit') refitActiveViewport();
   };
   const handleFullscreenChange = () => {
     updatePreviewPresentationControl();
+    schedulePresentationFit();
   };
   const handleCompactLayoutChange = (event: MediaQueryListEvent) => {
     const inspectorOpen = styleDialog.open || shell.dataset.inspectorOpen === 'true';
@@ -372,16 +407,8 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     });
   }
 
-  documentInput.addEventListener('input', () => {
-    state = setWorkspaceText(state, documentInput.value);
-    options.persistDocumentText?.(state.text);
-    renderDocument();
-  });
-  diagramInput.addEventListener('input', () => {
-    state = replaceSelectedDiagramSource(state, diagramInput.value);
-    options.persistDocumentText?.(state.text);
-    renderDocument();
-  });
+  documentInput.addEventListener('input', () => updateDocumentText(documentInput.value));
+  diagramInput.addEventListener('input', () => updateDiagramSource(diagramInput.value));
   list.addEventListener('click', event => {
     const target = event.target instanceof Element ? event.target : null;
     const copyButton = target?.closest<HTMLButtonElement>('[data-copy-repro]');
@@ -395,13 +422,9 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       : null;
     const index = Number(button?.dataset.diagramIndex);
     if (!Number.isInteger(index)) return;
-    state = selectWorkspaceDiagram(state, index);
-    activeEditor = 'diagram';
-    shell.dataset.mobilePanel = 'edit';
-    renderDocument();
-    renderMobileNavigation();
+    selectDiagram(index, { revealEditor: true });
     if (typeof window.matchMedia === 'function' && window.matchMedia(COMPACT_LAYOUT_QUERY).matches) {
-      diagramInput.focus();
+      diagramEditor.focus();
     }
   });
   diagnostics.addEventListener('click', event => {
@@ -446,22 +469,29 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
 
   function renderDocument(): void {
     syncValue(documentInput, state.text);
+    documentEditor.setValue(state.text);
     const current = selectedDiagram(state);
     syncValue(diagramInput, current?.source ?? '');
+    diagramEditor.setValue(current?.source ?? '');
     diagramInput.disabled = !current;
+    diagramEditor.setDisabled(!current);
     count.textContent = String(state.document.diagrams.length);
     renderList();
     renderEditors();
+    renderPreviewNavigation();
     runtime.request(current?.source ?? null, effectiveTheme);
     persistWorkspace();
   }
 
   function renderList(): void {
-    const signature = JSON.stringify(state.document.diagrams.map(diagram => [
-      diagram.diagramType,
-      analyzeSupport(diagram.source).status,
-      diagram.range.startLine,
-    ]));
+    const largeDocument = state.document.diagrams.length > 200;
+    const signature = largeDocument
+      ? `${locale}\u0000${state.text}`
+      : JSON.stringify([locale, state.document.diagrams.map(diagram => [
+        diagram.diagramType,
+        analyzeSupport(diagram.source).status,
+        diagram.range.startLine,
+      ])]);
     if (signature === renderedListSignature) {
       for (const [index, button] of [...list.querySelectorAll<HTMLButtonElement>('[data-diagram-item]')].entries()) {
         button.setAttribute('aria-current', String(index === state.selectedIndex));
@@ -469,33 +499,51 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       return;
     }
     renderedListSignature = signature;
-    list.replaceChildren();
-    if (state.document.diagrams.length === 0) {
-      const empty = document.createElement('p');
-      empty.dataset.emptyList = '';
-      empty.textContent = '没有找到图表。请粘贴 ```mermaid / ```xmermaid 代码块或一张完整 Mermaid 图表。';
-      list.append(empty);
+    const renderItems = () => {
+      if (listRenderFrame !== null) animationFrames.delete(listRenderFrame);
+      listRenderFrame = null;
+      list.replaceChildren();
+      if (state.document.diagrams.length === 0) {
+        const empty = document.createElement('p');
+        empty.dataset.emptyList = '';
+        empty.textContent = t('list.empty');
+        list.append(empty);
+        return;
+      }
+      const fragment = document.createDocumentFragment();
+      state.document.diagrams.forEach((diagram, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.diagramItem = '';
+        button.dataset.diagramIndex = String(index);
+        button.dataset.diagramType = diagram.diagramType;
+        const capability = analyzeSupport(diagram.source);
+        button.dataset.diagramStatus = capability.status;
+        button.className = 'diagram-item';
+        button.setAttribute('aria-current', String(index === state.selectedIndex));
+        const title = document.createElement('strong');
+        title.textContent = t('list.diagram', { index: index + 1 });
+        const meta = document.createElement('span');
+        meta.textContent = t('list.meta', {
+          type: diagramTypeLabel(diagram.diagramType, diagram.source, t),
+          status: diagramStatusLabel(capability.status, t),
+          line: diagram.range.startLine,
+        });
+        button.append(title, meta);
+        fragment.append(button);
+      });
+      list.append(fragment);
+    };
+    if (largeDocument) {
+      if (listRenderFrame !== null) {
+        window.cancelAnimationFrame(listRenderFrame);
+        animationFrames.delete(listRenderFrame);
+      }
+      listRenderFrame = window.requestAnimationFrame(renderItems);
+      animationFrames.add(listRenderFrame);
       return;
     }
-    const fragment = document.createDocumentFragment();
-    state.document.diagrams.forEach((diagram, index) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.dataset.diagramItem = '';
-      button.dataset.diagramIndex = String(index);
-      button.dataset.diagramType = diagram.diagramType;
-      const capability = analyzeSupport(diagram.source);
-      button.dataset.diagramStatus = capability.status;
-      button.className = 'diagram-item';
-      button.setAttribute('aria-current', index === state.selectedIndex ? 'true' : 'false');
-      const title = document.createElement('strong');
-      title.textContent = `图表 ${index + 1}`;
-      const meta = document.createElement('span');
-      meta.textContent = `${diagramTypeLabel(diagram.diagramType, diagram.source)} · ${diagramStatusLabel(capability.status)} · 第 ${diagram.range.startLine} 行`;
-      button.append(title, meta);
-      fragment.append(button);
-    });
-    list.append(fragment);
+    renderItems();
   }
 
   function renderEditors(): void {
@@ -514,6 +562,39 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     renderEditors();
   }
 
+  function updateDocumentText(value: string): void {
+    state = setWorkspaceText(state, value);
+    options.persistDocumentText?.(state.text);
+    renderDocument();
+  }
+
+  function updateDiagramSource(value: string): void {
+    state = replaceSelectedDiagramSource(state, value);
+    options.persistDocumentText?.(state.text);
+    renderDocument();
+  }
+
+  function selectDiagram(index: number, options: { revealEditor?: boolean } = {}): void {
+    if (index < 0 || index >= state.document.diagrams.length) return;
+    const changed = index !== state.selectedIndex;
+    if (changed) state = selectWorkspaceDiagram(state, index);
+    if (options.revealEditor) {
+      activeEditor = 'diagram';
+      shell.dataset.mobilePanel = 'edit';
+    }
+    if (!changed && !options.revealEditor) return;
+    renderDocument();
+    renderMobileNavigation();
+  }
+
+  function renderPreviewNavigation(): void {
+    const total = state.document.diagrams.length;
+    const current = total === 0 ? 0 : (state.selectedIndex ?? 0) + 1;
+    previewPreviousButton.disabled = current <= 1;
+    previewNextButton.disabled = total === 0 || current >= total;
+    previewPosition.textContent = `${current} / ${total}`;
+  }
+
   function renderMobileNavigation(): void {
     for (const button of root.querySelectorAll<HTMLButtonElement>('[data-mobile-target]')) {
       const selected = button.dataset.mobileTarget === shell.dataset.mobilePanel;
@@ -526,34 +607,43 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   function renderPreview(): void {
     if (!snapshot) return;
     previewStatus.textContent = snapshot.status === 'ready'
-      ? '已更新'
+      ? t('preview.ready')
       : snapshot.status === 'rendering'
-        ? '渲染中'
+        ? t('preview.rendering')
         : snapshot.status === 'error'
-          ? '预览未更新'
-          : '等待图表';
+          ? t('preview.stale')
+          : t('preview.waiting');
     if (snapshot.svg) {
       preview.replaceChildren(snapshot.svg);
+      const current = selectedDiagram(state);
+      if (snapshot.status === 'ready' && snapshot.source === current?.source) {
+        normalizePreviewSvg(snapshot.svg, {
+          label: t('canvas.diagramLabel', {
+            index: current.index + 1,
+            type: diagramTypeLabel(current.diagramType, current.source, t),
+          }),
+        });
+      }
       renderMinimap(snapshot.svg);
     } else {
-      preview.replaceChildren(emptyPreview(snapshot.status === 'idle'));
+      preview.replaceChildren(emptyPreview(snapshot.status === 'idle', t));
       previewMinimap.replaceChildren();
     }
 
     diagnostics.replaceChildren();
     const current = selectedDiagram(state);
     if (current) {
-      const recovery = capabilityRecovery(current);
+      const recovery = capabilityRecovery(current, t);
       if (recovery) diagnostics.append(recovery);
     }
     if (snapshot.status === 'error' && snapshot.message && snapshot.diagnostics.length === 0) {
-      diagnostics.append(diagnosticItem('render_error', snapshot.message));
+      diagnostics.append(diagnosticItem('render_error', snapshot.message, null, current, t));
     }
     for (const diagnostic of snapshot.diagnostics) {
-      diagnostics.append(diagnosticItem(diagnostic.code, diagnostic.message, diagnostic.range));
+      diagnostics.append(diagnosticItem(diagnostic.code, diagnostic.message, diagnostic.range, current, t));
     }
     if (snapshot.status === 'ready' && snapshot.diagnostics.length === 0) {
-      diagnostics.append(diagnosticItem('ok', '没有诊断。'));
+      diagnostics.append(diagnosticItem('ok', t('diagnostic.none'), null, null, t));
     }
 
     const canExport = Boolean(
@@ -571,8 +661,10 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     if (previewButton) previewButton.dataset.hasDiagnostics = String(snapshot.diagnostics.length > 0);
     if (snapshot.svg) {
       const current = selectedDiagram(state);
-      activeViewport = viewportForDiagram(viewportCache, current?.id ?? null, previewContentSize(), previewContainerSize());
-      applyViewport();
+      if (snapshot.status === 'ready' && snapshot.source === current?.source) {
+        activeViewport = viewportForDiagram(viewportCache, current.id, previewContentSize(), previewContainerSize());
+        applyViewport();
+      }
     }
   }
 
@@ -610,23 +702,23 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
         || themeSignature(effectiveTheme) !== exportThemeSignature
       ) return;
       saveBlob(blob, fileName);
-      actionStatus.textContent = `${format.toUpperCase()} 已下载。`;
+      actionStatus.textContent = t('status.exported', { format: format.toUpperCase() });
     } catch (error) {
-      actionStatus.textContent = `导出失败：${error instanceof Error ? error.message : String(error)}`;
+      actionStatus.textContent = t('status.exportFailed', { message: error instanceof Error ? error.message : String(error) });
     }
   }
 
   async function copyRepro(index: number): Promise<void> {
     const source = state.document.diagrams[index]?.source;
     if (!source) return;
-    try {
-      await navigator.clipboard?.writeText(source);
-      actionStatus.textContent = '图表源码已复制，可用于复现问题。';
-    } catch {
-      actionStatus.textContent = '复制失败，请从当前图表编辑器复制源码。';
+    if (await copyText(source)) {
+      actionStatus.textContent = t('status.copySuccess');
+      return;
     }
+    actionStatus.textContent = t('status.copyFailed');
   }
 
+  renderStaticCopy();
   renderThemeControls();
   applyLayoutPreferences(layoutPreferences);
   renderDocument();
@@ -637,13 +729,153 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       resizeObserver?.disconnect();
       window.removeEventListener('resize', handleWindowResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('keydown', closeDesktopStyleInspectorOnEscape);
       compactMediaQuery?.removeEventListener?.('change', handleCompactLayoutChange);
       for (const frame of animationFrames) window.cancelAnimationFrame(frame);
       if (panningPointerId !== null && previewCanvas.hasPointerCapture(panningPointerId)) previewCanvas.releasePointerCapture(panningPointerId);
+      document.body.classList.remove('canvas-panning');
+      document.documentElement.lang = originalDocumentLanguage;
+      documentEditor.destroy();
+      diagramEditor.destroy();
       runtime.dispose();
       root.replaceChildren();
     },
   };
+
+  function renderStaticCopy(): void {
+    const setText = (selector: string, key: MessageKey) => {
+      for (const element of root.querySelectorAll<HTMLElement>(selector)) element.textContent = t(key);
+    };
+    const setAttribute = (selector: string, name: 'aria-label' | 'title', key: MessageKey) => {
+      for (const element of root.querySelectorAll<HTMLElement>(selector)) element.setAttribute(name, t(key));
+    };
+    const setStyleLabel = (selector: string, key: MessageKey) => {
+      const control = root.querySelector<HTMLElement>(selector);
+      const label = control?.closest<HTMLElement>('label, .style-control');
+      label?.querySelector<HTMLElement>(':scope > span')?.replaceChildren(t(key));
+    };
+
+    setText('.brand-kicker', 'brand.kicker');
+    setText('[data-theme-option="dark"]', 'theme.dark');
+    setText('[data-theme-option="light"]', 'theme.light');
+    setText('.toolbar-label', 'action.style');
+    setText('[data-share]', 'action.share');
+    setText('.export-menu > summary', 'action.export');
+    setText('[data-export-svg]', 'action.downloadSvg');
+    setText('[data-export-png]', 'action.downloadPng');
+    setText('[data-mobile-more] .sr-only', 'action.more');
+    setText('[data-mobile-share-label]', 'action.share');
+    setText('[data-mobile-export-label="svg"]', 'action.downloadSvg');
+    setText('[data-mobile-export-label="png"]', 'action.downloadPng');
+    setText('[data-panel="list"] .panel-heading h2', 'panel.diagrams');
+    setText('[data-editor-tab="document"]', 'editor.document');
+    setText('[data-editor-tab="diagram"]', 'editor.diagram');
+    setText('[data-editor-surface="document"] .sr-only', 'editor.document');
+    setText('[data-editor-surface="diagram"] .sr-only', 'editor.diagram');
+    setText('[data-panel="preview"] > .panel-heading h2', 'panel.preview');
+    setText('#style-title', 'style.title');
+    setText('.style-close-compact', 'style.done');
+    setText('[data-style-body] > fieldset:nth-of-type(1) > legend', 'style.theme');
+    setText('[data-style-body] > fieldset:nth-of-type(2) > legend', 'style.colors');
+    setText('[data-style-body] > fieldset:nth-of-type(3) > legend', 'style.geometry');
+    setText('[data-style-advanced-colors] > summary', 'style.moreColors');
+    setText('[data-style-advanced-text] > summary', 'style.textAndFonts');
+    setText('[data-style-option="bezier"]', 'curve.bezier');
+    setText('[data-style-option="step"]', 'curve.step');
+    setText('[data-style-option="straight"]', 'curve.straight');
+    setText('[data-style-select="arrowStyle"] option[value="filled"]', 'arrow.filled');
+    setText('[data-style-select="arrowStyle"] option[value="triangle"]', 'arrow.triangle');
+    setText('[data-style-select="arrowStyle"] option[value="open"]', 'arrow.open');
+    setText('[data-style-select="arrowStyle"] option[value="circle"]', 'arrow.circle');
+    setText('[data-style-select="arrowStyle"] option[value="cross"]', 'arrow.cross');
+    setText('[data-style-select="fontFamily"] option[value="sans-serif"]', 'font.system');
+    setText('[data-style-select="fontFamily"] option[value="Inter, ui-sans-serif, system-ui, sans-serif"]', 'font.ui');
+    setText('[data-style-select="fontFamily"] option[value="ui-monospace, SFMono-Regular, Consolas, monospace"]', 'font.mono');
+    setText('[data-style-reset]', 'style.reset');
+    setText('[data-mobile-target="list"] span', 'nav.diagrams');
+    setText('[data-mobile-target="edit"] span', 'nav.edit');
+    setText('[data-mobile-target="preview"] > span:first-of-type', 'nav.preview');
+    setStyleLabel('[data-style-color="background"]', 'style.background');
+    setStyleLabel('[data-style-color="nodeFill"]', 'style.nodeFill');
+    setStyleLabel('[data-style-color="nodeStroke"]', 'style.nodeStroke');
+    setStyleLabel('[data-style-color="edgeStroke"]', 'style.edgeStroke');
+    setStyleLabel('[data-style-color="arrowFill"]', 'style.arrowFill');
+    setStyleLabel('[data-style-color="nodeText"]', 'style.nodeText');
+    setStyleLabel('[data-style-color="edgeLabel"]', 'style.edgeLabel');
+    setStyleLabel('[data-style-color="subgraphFill"]', 'style.subgraphFill');
+    setStyleLabel('[data-style-color="subgraphStroke"]', 'style.subgraphStroke');
+    setStyleLabel('[data-style-row="curveStyle"]', 'style.curve');
+    setStyleLabel('[data-style-select="arrowStyle"]', 'style.arrowStyle');
+    setStyleLabel('[data-style-number="edgeGap"]', 'style.edgeGap');
+    setStyleLabel('[data-style-number="arrowSize"]', 'style.arrowSize');
+    setStyleLabel('[data-style-number="nodeBorderRadius"]', 'style.nodeBorderRadius');
+    setStyleLabel('[data-style-select="fontFamily"]', 'style.fontFamily');
+    setStyleLabel('[data-style-number="fontSize"]', 'style.fontSize');
+
+    setAttribute('.brand', 'aria-label', 'brand.label');
+    setAttribute('[data-locale-select]', 'aria-label', 'language.label');
+    setAttribute('[data-toolbar] > .theme-switch', 'aria-label', 'theme.workspace');
+    setAttribute('[data-mobile-theme]', 'aria-label', 'theme.toggle');
+    setAttribute('[data-mobile-theme]', 'title', 'theme.toggle');
+    setAttribute('[data-mobile-more] > summary', 'aria-label', 'action.more');
+    setAttribute('[data-mobile-more] > summary', 'title', 'action.more');
+    setAttribute('[data-panel="list"]', 'aria-label', 'panel.diagramList');
+    setAttribute('[data-list-collapse]', 'aria-label', layoutPreferences.listCollapsed ? 'action.expandList' : 'action.collapseList');
+    setAttribute('[data-list-restore]', 'aria-label', 'action.expandList');
+    setAttribute('[data-list-restore]', 'title', 'action.expandList');
+    setAttribute('[data-workspace-divider="list"]', 'aria-label', 'action.resizeList');
+    setAttribute('[data-workspace-divider="editor"]', 'aria-label', 'action.resizeEditorPreview');
+    setAttribute('.editor-tabs', 'aria-label', 'editor.content');
+    setAttribute('[data-document-input]', 'aria-label', 'editor.document');
+    setAttribute('[data-diagram-input]', 'aria-label', 'editor.diagram');
+    documentEditor.setLabel(t('editor.document'));
+    diagramEditor.setLabel(t('editor.diagram'));
+    setAttribute('[data-panel="preview"]', 'aria-label', 'panel.preview');
+    setAttribute('.preview-actions', 'aria-label', 'canvas.controls');
+    setAttribute('[data-preview-previous]', 'aria-label', 'preview.previous');
+    setAttribute('[data-preview-previous]', 'title', 'preview.previous');
+    setAttribute('[data-preview-next]', 'aria-label', 'preview.next');
+    setAttribute('[data-preview-next]', 'title', 'preview.next');
+    setAttribute('[data-preview-zoom="out"]', 'aria-label', 'canvas.zoomOut');
+    setAttribute('[data-preview-zoom="out"]', 'title', 'canvas.zoomOut');
+    setAttribute('[data-preview-fit]', 'aria-label', 'canvas.fit');
+    setAttribute('[data-preview-fit]', 'title', 'canvas.fit');
+    setAttribute('[data-preview-zoom="in"]', 'aria-label', 'canvas.zoomIn');
+    setAttribute('[data-preview-zoom="in"]', 'title', 'canvas.zoomIn');
+    setAttribute('[data-preview-fullscreen]', 'aria-label', 'canvas.fullscreen');
+    setAttribute('[data-preview-fullscreen]', 'title', 'canvas.fullscreen');
+    setAttribute('[data-preview-canvas]', 'aria-label', 'canvas.label');
+    setAttribute('[data-style-desktop-host]', 'aria-label', 'style.title');
+    setAttribute('[data-style-close]', 'aria-label', styleDialog.open ? 'style.done' : 'style.close');
+    setAttribute('.theme-switch-drawer', 'aria-label', 'style.baseTheme');
+    setAttribute('.segmented-control', 'aria-label', 'style.curveGroup');
+    setAttribute('[data-style-number="edgeGap"]', 'aria-label', 'style.edgeGap');
+    setAttribute('[data-style-number="arrowSize"]', 'aria-label', 'style.arrowSize');
+    setAttribute('[data-style-number="nodeBorderRadius"]', 'aria-label', 'style.nodeBorderRadius');
+    setAttribute('[data-style-number="fontSize"]', 'aria-label', 'style.fontSize');
+    setAttribute('[data-mobile-navigation]', 'aria-label', 'navigation.workspace');
+    localeSelect.value = locale;
+    document.documentElement.lang = locale;
+  }
+
+  function applyLocale(value: string): void {
+    const next = parseLocale(value);
+    if (!next) {
+      localeSelect.value = locale;
+      return;
+    }
+    if (next === locale) return;
+    locale = next;
+    translator = createTranslator(locale);
+    renderedListSignature = null;
+    renderStaticCopy();
+    renderThemeControls();
+    renderList();
+    renderPreview();
+    renderMobileNavigation();
+    updatePreviewPresentationControl();
+    options.persistLocale?.(locale);
+  }
 
   function applyThemePreferences(next: ThemePreferences): void {
     preferences = cloneThemePreferences(next);
@@ -662,12 +894,12 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   function openStyleInspector(): void {
     if (isCompactLayout()) {
       placeStyleContent(styleMobileHost);
-      styleCloseButton.setAttribute('aria-label', '完成图表样式');
+      styleCloseButton.setAttribute('aria-label', t('style.done'));
       styleDialog.showModal();
       return;
     }
     placeStyleContent(styleDesktopHost);
-    styleCloseButton.setAttribute('aria-label', '关闭图表样式');
+    styleCloseButton.setAttribute('aria-label', t('style.close'));
     shell.dataset.inspectorOpen = 'true';
     refitActiveViewport();
   }
@@ -678,7 +910,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       return;
     }
     delete shell.dataset.inspectorOpen;
-    styleCloseButton.setAttribute('aria-label', '关闭图表样式');
+    styleCloseButton.setAttribute('aria-label', t('style.close'));
     refitActiveViewport();
     styleOpenButton.focus();
   }
@@ -689,12 +921,12 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
 
   function applyLayoutPreferences(next: WorkspaceLayoutPreferences, persist = false): void {
     layoutPreferences = next;
-    const layout = resolveWorkspaceLayout(next, workspace.getBoundingClientRect().width);
+    const layout = resolveWorkspaceLayout(next, workspaceAvailableWidth());
     shell.dataset.listCollapsed = String(next.listCollapsed);
     workspace.style.setProperty('--list-width', `${layout.listWidth}px`);
     workspace.style.setProperty('--editor-width', `${layout.editorWidth}px`);
     workspace.style.setProperty('--preview-width', `${layout.previewWidth}px`);
-    listCollapseButton.setAttribute('aria-label', next.listCollapsed ? '展开图表列表' : '收起图表列表');
+    listCollapseButton.setAttribute('aria-label', t(next.listCollapsed ? 'action.expandList' : 'action.collapseList'));
     listCollapseButton.innerHTML = icon(next.listCollapsed ? 'chevron-right' : 'chevron-left');
     listRestoreButton.setAttribute('aria-expanded', String(!next.listCollapsed));
     if (activeViewport.mode === 'fit') refitActiveViewport();
@@ -732,7 +964,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     });
     divider.addEventListener('pointermove', event => {
       if (!drag || event.pointerId !== drag.pointerId) return;
-      drag.next = adjustWorkspaceDivider(drag.start, kind, event.clientX - drag.startX, workspace.getBoundingClientRect().width);
+      drag.next = adjustWorkspaceDivider(drag.start, kind, event.clientX - drag.startX, workspaceAvailableWidth());
       if (frame === null) {
         frame = window.requestAnimationFrame(applyDrag);
         animationFrames.add(frame);
@@ -749,13 +981,19 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
           layoutPreferences,
           kind,
           event.key === 'ArrowLeft' ? -delta : delta,
-          workspace.getBoundingClientRect().width,
+          workspaceAvailableWidth(),
         ), true);
       } else if (event.key === 'Home' || event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         applyLayoutPreferences(DEFAULT_LAYOUT_PREFERENCES, true);
       }
     });
+  }
+
+  function workspaceAvailableWidth(): number {
+    const styles = getComputedStyle(workspace);
+    const horizontalPadding = (Number.parseFloat(styles.paddingLeft) || 0) + (Number.parseFloat(styles.paddingRight) || 0);
+    return Math.max(0, workspace.getBoundingClientRect().width - horizontalPadding);
   }
 
   function previewContentSize(): CanvasSize {
@@ -791,6 +1029,8 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   function applyViewport(): void {
     previewStage.style.transform = viewportTransform(activeViewport);
     previewStage.dataset.viewportMode = activeViewport.mode;
+    previewZoomValue.value = formatCanvasZoom(activeViewport);
+    previewZoomValue.textContent = formatCanvasZoom(activeViewport);
     updateMinimapViewport();
   }
 
@@ -820,7 +1060,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       await previewPanel.requestFullscreen();
     } catch {
       setPreviewMaximized(true);
-      actionStatus.textContent = '浏览器未进入全屏，已切换到应用内最大化预览。';
+      actionStatus.textContent = t('status.fullscreenFallback');
     }
   }
 
@@ -828,16 +1068,40 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     if (maximized) shell.dataset.previewMaximized = 'true';
     else delete shell.dataset.previewMaximized;
     updatePreviewPresentationControl();
+    schedulePresentationFit();
+  }
+
+  function schedulePresentationFit(): void {
+    let secondFrame: number | null = null;
+    const firstFrame = window.requestAnimationFrame(() => {
+      animationFrames.delete(firstFrame);
+      secondFrame = window.requestAnimationFrame(() => {
+        animationFrames.delete(secondFrame!);
+        refitActiveViewport();
+      });
+      animationFrames.add(secondFrame);
+    });
+    animationFrames.add(firstFrame);
+  }
+
+  function createSourceEditor(
+    host: HTMLElement,
+    value: string,
+    language: Parameters<typeof createCodeEditor>[0]['language'],
+    label: MessageKey,
+    onChange: (value: string) => void,
+  ): CodeEditor {
+    return createCodeEditor({ host, value, language, label: t(label), onChange });
   }
 
   function updatePreviewPresentationControl(): void {
     const fullscreen = document.fullscreenElement === previewPanel;
     const maximized = shell.dataset.previewMaximized === 'true';
     const label = fullscreen
-      ? '退出全屏预览'
+      ? t('canvas.exitFullscreen')
       : maximized
-        ? '退出最大化预览'
-        : '全屏预览';
+        ? t('canvas.exitMaximized')
+        : t('canvas.fullscreen');
     previewFullscreenButton.setAttribute('aria-label', label);
     previewFullscreenButton.title = label;
   }
@@ -912,7 +1176,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     }
     const custom = Object.keys(preferences.overrides).length > 0;
     styleOpenButton.dataset.styleCustom = String(custom);
-    styleOpenButton.setAttribute('aria-label', custom ? '图表样式，已自定义' : '图表样式');
+    styleOpenButton.setAttribute('aria-label', t(custom ? 'style.custom' : 'action.style'));
     styleResetButton.disabled = !custom;
   }
 }
@@ -953,19 +1217,21 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-function diagramTypeLabel(diagramType: string, source?: string): string {
+type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
+
+function diagramTypeLabel(diagramType: string, source: string | undefined, translate: Translate): string {
   if (diagramType !== 'unknown') return diagramType;
-  return source?.trim().split(/\s+/, 1)[0] || '未知图表';
+  return source?.trim().split(/\s+/, 1)[0] || translate('type.unknown');
 }
 
-function diagramStatusLabel(status: ReturnType<typeof analyzeSupport>['status']): string {
-  if (status === 'supported') return '已支持';
-  if (status === 'partial') return '部分支持';
-  if (status === 'planned') return '计划中';
-  return '未识别';
+function diagramStatusLabel(status: ReturnType<typeof analyzeSupport>['status'], translate: Translate): string {
+  if (status === 'supported') return translate('support.supported');
+  if (status === 'partial') return translate('support.partial');
+  if (status === 'planned') return translate('support.planned');
+  return translate('support.unknown');
 }
 
-function capabilityRecovery(diagram: ReturnType<typeof selectedDiagram>): HTMLElement | null {
+function capabilityRecovery(diagram: ReturnType<typeof selectedDiagram>, translate: Translate): HTMLElement | null {
   if (!diagram) return null;
   const capability = analyzeSupport(diagram.source);
   if (capability.status === 'supported') return null;
@@ -976,33 +1242,84 @@ function capabilityRecovery(diagram: ReturnType<typeof selectedDiagram>): HTMLEl
   recovery.dataset.diagramType = diagram.diagramType;
   recovery.dataset.diagramStatus = capability.status;
   const message = document.createElement('span');
-  message.textContent = `${diagramTypeLabel(diagram.diagramType)}：${diagramStatusLabel(capability.status)}。${capability.message}`;
+  message.textContent = translate('capability.message', {
+    type: diagramTypeLabel(diagram.diagramType, undefined, translate),
+    status: diagramStatusLabel(capability.status, translate),
+    message: capability.message,
+  });
   const copy = document.createElement('button');
   copy.type = 'button';
   copy.dataset.copyRepro = '';
   copy.dataset.diagramIndex = String(diagram.index);
-  copy.textContent = '复制复现源码';
+  copy.textContent = translate('capability.copy');
   recovery.append(message, copy);
   return recovery;
 }
 
-function emptyPreview(showGuide: boolean): HTMLElement {
+function emptyPreview(showGuide: boolean, translate: Translate): HTMLElement {
   const empty = document.createElement('p');
   empty.className = 'empty-preview';
-  empty.textContent = showGuide ? '选择或粘贴一张 Mermaid flowchart。' : '正在准备预览。';
+  empty.textContent = translate(showGuide ? 'preview.guide' : 'preview.preparing');
   return empty;
 }
 
-function diagnosticItem(code: string, message: string, range: SourceRange | null = null): HTMLElement {
+function diagnosticItem(
+  code: string,
+  message: string,
+  range: SourceRange | null = null,
+  diagram: NonNullable<ReturnType<typeof selectedDiagram>> | null = null,
+  translate: Translate,
+): HTMLElement {
   const item = document.createElement('p');
   item.className = `diagnostic diagnostic-${code === 'ok' ? 'ok' : 'issue'}`;
-  const line = range
+  const diagramLabel = diagram ? translate('diagnostic.diagram', { index: diagram.index + 1 }) : '';
+  const line = range && diagram
     ? range.startLine === range.endLine
-      ? `（图内第 ${range.startLine} 行）`
-      : `（图内第 ${range.startLine}-${range.endLine} 行）`
-    : '';
-  item.textContent = `${code}: ${message}${line}`;
+      ? translate('diagnostic.diagramLine', {
+        diagram: diagram.index + 1,
+        line: range.startLine,
+        documentLine: diagram.range.startLine + range.startLine - 1,
+      })
+      : translate('diagnostic.diagramRange', {
+        diagram: diagram.index + 1,
+        start: range.startLine,
+        end: range.endLine,
+        documentStart: diagram.range.startLine + range.startLine - 1,
+        documentEnd: diagram.range.startLine + range.endLine - 1,
+      })
+    : range
+      ? range.startLine === range.endLine
+        ? translate('diagnostic.line', { line: range.startLine })
+        : translate('diagnostic.range', { start: range.startLine, end: range.endLine })
+      : '';
+  const context = range && diagram ? line : [diagramLabel, line].filter(Boolean).join(' · ');
+  item.textContent = `${code}: ${message}${context ? translate('diagnostic.context', { context }) : ''}`;
   return item;
+}
+
+async function copyText(value: string): Promise<boolean> {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // HTTP and denied-permission contexts continue through the synchronous fallback.
+    }
+  }
+
+  const input = document.createElement('textarea');
+  input.value = value;
+  input.setAttribute('readonly', '');
+  input.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:0;opacity:0;pointer-events:none;';
+  document.body.append(input);
+  input.select();
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    input.remove();
+  }
 }
 
 function downloadBlob(blob: Blob, fileName: string): void {

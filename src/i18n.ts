@@ -30,6 +30,8 @@ const zhCN = {
   'editor.diagram': '当前图表',
   'action.resizeEditorPreview': '调整编辑器与预览宽度',
   'panel.preview': '实时预览',
+  'preview.previous': '上一张图表',
+  'preview.next': '下一张图表',
   'canvas.controls': '画布视图控制',
   'canvas.zoomOut': '缩小预览',
   'canvas.fit': '适配预览',
@@ -38,6 +40,7 @@ const zhCN = {
   'canvas.exitFullscreen': '退出全屏预览',
   'canvas.exitMaximized': '退出最大化预览',
   'canvas.label': '图表画布',
+  'canvas.diagramLabel': '图表 {{index}}：{{type}}',
   'style.title': '图表样式',
   'style.close': '关闭图表样式',
   'style.done': '完成图表样式',
@@ -142,6 +145,8 @@ const en: Record<MessageKey, string> = {
   'editor.diagram': 'Current diagram',
   'action.resizeEditorPreview': 'Resize editor and preview',
   'panel.preview': 'Live preview',
+  'preview.previous': 'Previous diagram',
+  'preview.next': 'Next diagram',
   'canvas.controls': 'Canvas view controls',
   'canvas.zoomOut': 'Zoom out',
   'canvas.fit': 'Fit preview',
@@ -150,6 +155,7 @@ const en: Record<MessageKey, string> = {
   'canvas.exitFullscreen': 'Exit fullscreen preview',
   'canvas.exitMaximized': 'Exit maximized preview',
   'canvas.label': 'Diagram canvas',
+  'canvas.diagramLabel': 'Diagram {{index}}: {{type}}',
   'style.title': 'Diagram style',
   'style.close': 'Close diagram style',
   'style.done': 'Done with diagram style',
@@ -240,8 +246,8 @@ export function parseLocale(value: string | null | undefined): Locale | null {
   return value === 'zh-CN' || value === 'en' ? value : null;
 }
 
-export function resolveLocale(savedLocale: string | null | undefined, browserLanguage?: string): Locale {
-  return parseLocale(savedLocale) ?? (browserLanguage?.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en');
+export function resolveLocale(savedLocale: string | null | undefined, _browserLanguage?: string): Locale {
+  return parseLocale(savedLocale) ?? 'en';
 }
 
 export function serializeLocale(locale: Locale): string {

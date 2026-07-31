@@ -33,6 +33,34 @@ export const THEME_FONT_FAMILIES = [
 
 const ARROW_STYLES: readonly ArrowStyle[] = ['filled', 'triangle', 'open', 'circle', 'cross'];
 const CURVE_STYLES: readonly CurveStyle[] = ['bezier', 'step', 'straight'];
+const GRAPHITE_DARK_THEME: RenderTheme = {
+  ...DARK_THEME,
+  colors: {
+    background: '#090A0C',
+    nodeFill: '#17191D',
+    nodeStroke: '#B7BEC6',
+    nodeText: '#F4F5F6',
+    edgeStroke: '#A1A9B1',
+    edgeLabel: '#D7DBDF',
+    arrowFill: '#B7BEC6',
+    subgraphFill: '#101215',
+    subgraphStroke: '#555D66',
+  },
+};
+const GRAPHITE_LIGHT_THEME: RenderTheme = {
+  ...LIGHT_THEME,
+  colors: {
+    background: '#F5F6F7',
+    nodeFill: '#FFFFFF',
+    nodeStroke: '#5B646D',
+    nodeText: '#15181B',
+    edgeStroke: '#5B646D',
+    edgeLabel: '#343A40',
+    arrowFill: '#5B646D',
+    subgraphFill: '#ECEEF0',
+    subgraphStroke: '#B7BEC6',
+  },
+};
 const COLOR_KEYS: readonly (keyof ThemeColors)[] = [
   'background',
   'nodeFill',
@@ -46,7 +74,7 @@ const COLOR_KEYS: readonly (keyof ThemeColors)[] = [
 ];
 
 export function resolveDiagramTheme(preferences: ThemePreferences): RenderTheme {
-  const base = preferences.workspace === 'dark' ? DARK_THEME : LIGHT_THEME;
+  const base = preferences.workspace === 'dark' ? GRAPHITE_DARK_THEME : GRAPHITE_LIGHT_THEME;
   const customized = Object.keys(preferences.overrides).length > 0;
 
   return {

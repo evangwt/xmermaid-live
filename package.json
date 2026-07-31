@@ -1,6 +1,6 @@
 {
   "name": "xmermaid-live",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,6 +8,7 @@
     "dev": "npm run copy:wasm && vite",
     "build": "npm run copy:wasm && tsc --noEmit && vite build",
     "preview": "vite preview",
+    "review:snapshot": "node scripts/review-snapshot.mjs",
     "serve:test": "node scripts/serve-dist.mjs",
     "test": "vitest run",
     "test:e2e": "npm run build && playwright test",
@@ -15,7 +16,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@evangwt/xmermaid": "file:vendor/evangwt-xmermaid-0.1.7.tgz"
+    "@codemirror/commands": "^6.10.4",
+    "@codemirror/lang-markdown": "^6.5.1",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.1",
+    "@codemirror/view": "^6.43.7",
+    "@evangwt/xmermaid": "file:vendor/evangwt-xmermaid-0.1.7.tgz",
+    "@lezer/highlight": "^1.2.3"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",

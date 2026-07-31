@@ -16,7 +16,7 @@ export type WorkspaceDivider = 'list' | 'editor';
 const LIST_MIN_WIDTH = 168;
 const EDITOR_MIN_WIDTH = 320;
 const PREVIEW_MIN_WIDTH = 360;
-const DIVIDER_WIDTH = 8;
+const DIVIDER_WIDTH = 10;
 
 export const DEFAULT_LAYOUT_PREFERENCES: WorkspaceLayoutPreferences = {
   version: 1,

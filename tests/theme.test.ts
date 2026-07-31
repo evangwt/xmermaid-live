@@ -1,4 +1,4 @@
-import { DARK_THEME, LIGHT_THEME } from '@evangwt/xmermaid';
+import { DARK_THEME } from '@evangwt/xmermaid';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_THEME_PREFERENCES,
@@ -9,6 +9,18 @@ import {
 } from '../src/theme';
 
 describe('theme preferences', () => {
+  it('uses a graphite diagram palette instead of the upstream violet defaults', () => {
+    const dark = resolveDiagramTheme(DEFAULT_THEME_PREFERENCES);
+
+    expect(dark.colors).toMatchObject({
+      background: '#090A0C',
+      nodeFill: '#17191D',
+      nodeStroke: '#B7BEC6',
+      arrowFill: '#B7BEC6',
+    });
+    expect(Object.values(dark.colors)).not.toContain('#A78BFA');
+  });
+
   it('defaults to dark and preserves only explicit overrides across workspace switches', () => {
     const dark = resolveDiagramTheme(DEFAULT_THEME_PREFERENCES);
     const lightCustom = resolveDiagramTheme({
@@ -21,8 +33,8 @@ describe('theme preferences', () => {
     expect(lightCustom.name).toBe('xmermaid-light-custom');
     expect(lightCustom.arrowSize).toBe(16);
     expect(lightCustom.colors.arrowFill).toBe('#ff3366');
-    expect(lightCustom.colors.background).toBe(LIGHT_THEME.colors.background);
-    expect(lightCustom.colors.nodeStroke).toBe(LIGHT_THEME.colors.nodeStroke);
+    expect(lightCustom.colors.background).toBe('#F5F6F7');
+    expect(lightCustom.colors.nodeStroke).toBe('#5B646D');
   });
 
   it('rejects invalid or future preference payloads', () => {

@@ -2,6 +2,7 @@ import { decodeShareState } from '@evangwt/xmermaid/editor';
 import './styles.css';
 import { mountApp } from './app';
 import { createWorkspaceDocumentForDiagram } from './document-model';
+import { resolveLocale, serializeLocale } from './i18n';
 import { parseLayoutPreferences, serializeLayoutPreferences } from './layout-preferences';
 import { SAMPLE_DOCUMENT } from './sample';
 import { parseThemePreferences, serializeThemePreferences } from './theme';
@@ -11,6 +12,7 @@ const LAYOUT_STORAGE_KEY = 'xmermaid-live.layout.v1';
 const THEME_STORAGE_KEY = 'xmermaid-live.theme.v1';
 const WORKSPACE_STORAGE_KEY = 'xmermaid-live.workspace.v2';
 const LEGACY_DOCUMENT_STORAGE_KEY = 'xmermaid-live.document.v1';
+const LOCALE_STORAGE_KEY = 'xmermaid-live.locale.v1';
 
 const root = document.querySelector<HTMLElement>('#app');
 if (!root) throw new Error('Missing #app root.');
@@ -32,6 +34,7 @@ const initialThemePreferences = savedThemePreferences
   : cachedWorkspace?.themePreferences
     ? parseThemePreferences(JSON.stringify(cachedWorkspace.themePreferences))
     : parseThemePreferences(null);
+const initialLocale = resolveLocale(safeRead(LOCALE_STORAGE_KEY), navigator.language);
 const workspaceCacheWriter = createWorkspaceCacheWriter({
   storage: safeStorage(),
   key: WORKSPACE_STORAGE_KEY,
@@ -45,6 +48,10 @@ mountApp(root, {
     safeWrite(LAYOUT_STORAGE_KEY, serializeLayoutPreferences(preferences));
   },
   initialThemePreferences,
+  initialLocale,
+  persistLocale: locale => {
+    safeWrite(LOCALE_STORAGE_KEY, serializeLocale(locale));
+  },
   persistThemePreferences: preferences => {
     safeWrite(THEME_STORAGE_KEY, serializeThemePreferences(preferences));
   },

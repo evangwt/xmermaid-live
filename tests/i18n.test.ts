@@ -13,9 +13,9 @@ describe('i18n locale resolution', () => {
     expect(resolveLocale('zh-CN', 'en-US')).toBe('zh-CN');
   });
 
-  it('maps Chinese browser variants to zh-CN and all other values to English', () => {
-    expect(resolveLocale(null, 'zh')).toBe('zh-CN');
-    expect(resolveLocale(undefined, 'zh-Hans-CN')).toBe('zh-CN');
+  it('defaults to English regardless of browser language', () => {
+    expect(resolveLocale(null, 'zh')).toBe('en');
+    expect(resolveLocale(undefined, 'zh-Hans-CN')).toBe('en');
     expect(resolveLocale(null, 'en-GB')).toBe('en');
     expect(resolveLocale(null, undefined)).toBe('en');
   });
