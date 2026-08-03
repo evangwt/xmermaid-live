@@ -102,6 +102,20 @@ describe('mountApp', () => {
     expect(document.querySelector('.preview-actions')?.getAttribute('aria-label')).toBe('Canvas view controls');
   });
 
+  it('groups low-frequency product links under More while preserving share and export actions', () => {
+    mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
+
+    expect(document.querySelector('[data-share]')).not.toBeNull();
+    expect(document.querySelector('.export-menu')).not.toBeNull();
+    expect(document.querySelector('[data-project-menu="desktop"] [data-product-version]')?.textContent).toBe('xmermaid v0.1.7');
+    const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-project-menu="desktop"] a')];
+    expect(links.map(link => link.href)).toEqual([
+      'https://github.com/evangwt/xmermaid',
+      'https://github.com/evangwt/xmermaid-live',
+    ]);
+    expect(links.every(link => link.target === '_blank' && link.rel === 'noopener noreferrer')).toBe(true);
+  });
+
   it('marks the canvas-led Aurora hierarchy without changing accessible controls', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
 
@@ -650,22 +664,24 @@ describe('mountApp', () => {
     expect(document.body.classList.contains('canvas-panning')).toBe(false);
   });
 
-  it('uses application maximize when browser fullscreen rejects', async () => {
+  it('uses a separate in-app maximize control when browser fullscreen rejects', async () => {
     Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: null });
     Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
       configurable: true,
       value: vi.fn().mockRejectedValue(new Error('denied')),
     });
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
-    document.querySelector<HTMLButtonElement>('[data-preview-fullscreen]')!.click();
+    const fullscreen = document.querySelector<HTMLButtonElement>('[data-preview-fullscreen]')!;
+    const maximize = document.querySelector<HTMLButtonElement>('[data-preview-maximize]')!;
+    expect(fullscreen.querySelector('svg')?.innerHTML).not.toBe(maximize.querySelector('svg')?.innerHTML);
+    fullscreen.click();
     await Promise.resolve();
 
     expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.previewMaximized).toBe('true');
     expect(document.querySelector('[data-action-status]')?.textContent).toContain('in-app maximized preview');
-    expect(document.querySelector('[data-preview-maximize-exit]')).toBeNull();
-    const control = document.querySelector<HTMLButtonElement>('[data-preview-fullscreen]')!;
-    expect(control.getAttribute('aria-label')).toBe('Exit maximized preview');
-    control.click();
+    expect(fullscreen.getAttribute('aria-label')).toBe('Fullscreen preview');
+    expect(maximize.getAttribute('aria-label')).toBe('Exit maximized preview');
+    maximize.click();
     expect(document.querySelector<HTMLElement>('.app-shell')?.dataset.previewMaximized).toBeUndefined();
   });
 
@@ -802,6 +818,11 @@ describe('mountApp', () => {
     expect(navigation.querySelectorAll('button')).toHaveLength(3);
     expect(document.querySelector('[data-mobile-more]')).not.toBeNull();
     expect(document.querySelector('[data-mobile-share]')).not.toBeNull();
+    const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-project-menu="mobile"] a')];
+    expect(links.map(link => link.href)).toEqual([
+      'https://github.com/evangwt/xmermaid',
+      'https://github.com/evangwt/xmermaid-live',
+    ]);
   });
 
   it('uses a distinct adjustment glyph for compact chart styling', () => {

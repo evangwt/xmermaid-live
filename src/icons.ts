@@ -1,4 +1,4 @@
-export type IconName = 'chevron-left' | 'chevron-right' | 'minus' | 'plus' | 'fit' | 'maximize' | 'more' | 'diagram' | 'edit' | 'preview' | 'share' | 'download' | 'palette' | 'sliders';
+export type IconName = 'chevron-left' | 'chevron-right' | 'minus' | 'plus' | 'fit' | 'maximize' | 'fullscreen' | 'maximize-panel' | 'external-link' | 'info' | 'more' | 'diagram' | 'edit' | 'preview' | 'share' | 'download' | 'palette' | 'sliders';
 
 const PATHS: Record<IconName, string> = {
   'chevron-left': '<path d="m14 6-6 6 6 6"/>',
@@ -7,6 +7,10 @@ const PATHS: Record<IconName, string> = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   fit: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
   maximize: '<path d="M8 4H4v4M16 4h4v4M20 16v4h-4M4 16v4h4"/>',
+  fullscreen: '<path d="M8 4H4v4M16 4h4v4M20 16v4h-4M4 16v4h4"/>',
+  'maximize-panel': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="m9 15 6-6M11 9h4v4"/>',
+  'external-link': '<path d="M14 5h5v5M19 5l-8 8"/><path d="M17 13v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h4"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
   more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
   diagram: '<rect x="4" y="5" width="6" height="5" rx="1"/><rect x="14" y="14" width="6" height="5" rx="1"/><path d="M10 8h4v8"/>',
   edit: '<path d="m4 16 9-9 3 3-9 9-3 1zM12 8l3 3"/>',

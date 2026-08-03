@@ -23,6 +23,7 @@ import { icon } from './icons';
 import { createTranslator, parseLocale, type Locale, type MessageKey } from './i18n';
 import { createCodeEditor, type CodeEditor } from './code-editor';
 import { normalizePreviewSvg } from './preview-svg';
+import { XMERMAID_LIVE_REPOSITORY_URL, XMERMAID_REPOSITORY_URL, XMERMAID_VERSION } from './product';
 import {
   fitCanvasViewport,
   formatCanvasZoom,
@@ -66,6 +67,11 @@ export interface MountedApp {
   destroy(): void;
 }
 
+const PROJECT_MENU_CONTENT = `
+  <a href="${XMERMAID_REPOSITORY_URL}" target="_blank" rel="noopener noreferrer">${icon('external-link')}<span data-project-xmermaid></span></a>
+  <a href="${XMERMAID_LIVE_REPOSITORY_URL}" target="_blank" rel="noopener noreferrer">${icon('external-link')}<span data-project-live></span></a>
+  <span data-product-version>xmermaid v${XMERMAID_VERSION}</span>`;
+
 const SHELL = `
   <div class="app-shell" data-studio-layout="aurora" data-mobile-panel="edit" data-workspace-theme="dark">
     <header class="topbar">
@@ -91,12 +97,17 @@ const SHELL = `
             <button type="button" data-export-png disabled>下载 PNG</button>
           </div>
         </details>
+        <details class="project-menu" data-project-menu="desktop">
+          <summary class="quiet-icon-button" aria-label="项目与版本" title="项目与版本">${icon('info')}<span class="sr-only" data-project-label>项目与版本</span></summary>
+          <div class="project-menu-options">${PROJECT_MENU_CONTENT}</div>
+        </details>
         <details class="mobile-more-menu" data-mobile-more>
           <summary aria-label="更多操作" title="更多操作">${icon('more')}<span class="sr-only">更多操作</span></summary>
           <div class="mobile-more-options">
             <button type="button" data-mobile-share>${icon('share')}<span data-mobile-share-label>分享</span></button>
             <button type="button" data-mobile-export="svg" disabled>${icon('download')}<span data-mobile-export-label="svg">下载 SVG</span></button>
             <button type="button" data-mobile-export="png" disabled>${icon('download')}<span data-mobile-export-label="png">下载 PNG</span></button>
+            <div class="mobile-project-menu" data-project-menu="mobile">${PROJECT_MENU_CONTENT}</div>
           </div>
         </details>
       </div>
@@ -127,7 +138,7 @@ const SHELL = `
       <div class="workspace-divider" data-workspace-divider="editor" role="separator" aria-orientation="vertical" aria-label="调整编辑器与预览宽度" tabindex="0"></div>
       <section class="preview-panel" data-panel="preview" aria-label="实时预览">
         <div class="panel-heading"><h2>预览</h2><span data-preview-status></span><div class="preview-navigation" role="group"><button type="button" class="quiet-icon-button" data-preview-previous>${icon('chevron-left')}</button><span data-preview-position></span><button type="button" class="quiet-icon-button" data-preview-next>${icon('chevron-right')}</button></div></div>
-        <div class="preview-content-grid"><div class="preview-canvas" data-preview-canvas data-preview-priority="primary" aria-label="图表画布"><div class="preview-actions preview-canvas-controls" data-preview-controls role="group" aria-label="画布视图控制"><output data-preview-zoom-value>100%</output><button type="button" class="quiet-icon-button" data-preview-zoom="out" aria-label="缩小预览" title="缩小预览">${icon('minus')}</button><button type="button" class="quiet-icon-button" data-preview-fit aria-label="适配预览" title="适配预览">${icon('fit')}</button><button type="button" class="quiet-icon-button" data-preview-zoom="in" aria-label="放大预览" title="放大预览">${icon('plus')}</button><button type="button" class="quiet-icon-button" data-preview-fullscreen aria-label="全屏预览" title="全屏预览">${icon('maximize')}</button></div><div class="preview-stage" data-preview-stage data-viewport-mode="fit" data-preview></div><div class="preview-minimap" data-preview-minimap aria-hidden="true"></div></div><aside class="preview-inspector" data-style-desktop-host aria-label="图表样式"><div class="style-inspector-content" data-style-content><header class="style-inspector-header"><h2 id="style-title">图表样式</h2><button type="button" class="icon-button" data-style-close aria-label="关闭图表样式"><span class="style-close-desktop">×</span><span class="style-close-compact">完成</span></button></header><div class="style-drawer-body" data-style-body><fieldset><legend>主题</legend><div class="theme-switch theme-switch-drawer" role="group" aria-label="图表基础主题"><button type="button" data-theme-option="dark" aria-pressed="true">深色</button><button type="button" data-theme-option="light" aria-pressed="false">浅色</button></div></fieldset><fieldset><legend>颜色</legend><div class="color-controls"><label class="style-control"><span>画布</span><input type="color" data-style-color="background"></label><label class="style-control"><span>节点</span><input type="color" data-style-color="nodeFill"></label><label class="style-control"><span>节点描边</span><input type="color" data-style-color="nodeStroke"></label><label class="style-control"><span>连线</span><input type="color" data-style-color="edgeStroke"></label><label class="style-control"><span>箭头颜色</span><input type="color" data-style-color="arrowFill"></label></div><details data-style-advanced-colors><summary>更多颜色</summary><div class="color-controls"><label class="style-control"><span>节点文字</span><input type="color" data-style-color="nodeText"></label><label class="style-control"><span>连线标签</span><input type="color" data-style-color="edgeLabel"></label><label class="style-control"><span>子图</span><input type="color" data-style-color="subgraphFill"></label><label class="style-control"><span>子图描边</span><input type="color" data-style-color="subgraphStroke"></label></div></details></fieldset><fieldset><legend>几何</legend><div class="style-control style-control-stack" data-style-row="curveStyle"><span>曲线</span><div class="segmented-control" role="group" aria-label="曲线样式"><button type="button" data-style-option="bezier" aria-pressed="true">贝塞尔</button><button type="button" data-style-option="step" aria-pressed="false">折线</button><button type="button" data-style-option="straight" aria-pressed="false">直线</button></div></div><label class="style-control" data-style-row="arrowStyle"><span>箭头类型</span><select data-style-select="arrowStyle"><option value="filled">实心</option><option value="triangle">三角</option><option value="open">开放</option><option value="circle">圆形</option><option value="cross">交叉</option></select></label><label class="style-control range-control" data-style-row="edgeGap"><span>箭头与节点间距</span><output data-style-output="edgeGap"></output><input type="range" min="0" max="24" step="1" aria-label="箭头与节点间距" data-style-number="edgeGap"></label><label class="style-control range-control" data-style-row="arrowSize"><span>箭头大小</span><output data-style-output="arrowSize"></output><input type="range" min="4" max="32" step="1" aria-label="箭头大小" data-style-number="arrowSize"></label><label class="style-control range-control" data-style-row="nodeBorderRadius"><span>节点圆角</span><output data-style-output="nodeBorderRadius"></output><input type="range" min="0" max="24" step="1" aria-label="节点圆角" data-style-number="nodeBorderRadius"></label></fieldset><details data-style-advanced-text><summary>文字与字体</summary><label class="style-control" data-style-row="fontFamily"><span>字体</span><select data-style-select="fontFamily"><option value="sans-serif">系统字体</option><option value="Inter, ui-sans-serif, system-ui, sans-serif">界面字体</option><option value="ui-monospace, SFMono-Regular, Consolas, monospace">等宽字体</option></select></label><label class="style-control range-control" data-style-row="fontSize"><span>字号</span><output data-style-output="fontSize"></output><input type="range" min="10" max="24" step="1" aria-label="字号" data-style-number="fontSize"></label></details></div><footer class="style-drawer-footer" data-style-footer><button type="button" data-style-reset>重置图表样式</button></footer></div></aside></div>
+        <div class="preview-content-grid"><div class="preview-canvas" data-preview-canvas data-preview-priority="primary" aria-label="图表画布"><div class="preview-actions preview-canvas-controls" data-preview-controls role="group" aria-label="画布视图控制"><output data-preview-zoom-value>100%</output><button type="button" class="quiet-icon-button" data-preview-zoom="out" aria-label="缩小预览" title="缩小预览">${icon('minus')}</button><button type="button" class="quiet-icon-button" data-preview-fit aria-label="适配预览" title="适配预览">${icon('fit')}</button><button type="button" class="quiet-icon-button" data-preview-zoom="in" aria-label="放大预览" title="放大预览">${icon('plus')}</button><button type="button" class="quiet-icon-button" data-preview-fullscreen aria-label="全屏预览" title="全屏预览">${icon('fullscreen')}</button><button type="button" class="quiet-icon-button" data-preview-maximize aria-label="最大化预览" title="最大化预览">${icon('maximize-panel')}</button></div><div class="preview-stage" data-preview-stage data-viewport-mode="fit" data-preview></div><div class="preview-minimap" data-preview-minimap aria-hidden="true"></div></div><aside class="preview-inspector" data-style-desktop-host aria-label="图表样式"><div class="style-inspector-content" data-style-content><header class="style-inspector-header"><h2 id="style-title">图表样式</h2><button type="button" class="icon-button" data-style-close aria-label="关闭图表样式"><span class="style-close-desktop">×</span><span class="style-close-compact">完成</span></button></header><div class="style-drawer-body" data-style-body><fieldset><legend>主题</legend><div class="theme-switch theme-switch-drawer" role="group" aria-label="图表基础主题"><button type="button" data-theme-option="dark" aria-pressed="true">深色</button><button type="button" data-theme-option="light" aria-pressed="false">浅色</button></div></fieldset><fieldset><legend>颜色</legend><div class="color-controls"><label class="style-control"><span>画布</span><input type="color" data-style-color="background"></label><label class="style-control"><span>节点</span><input type="color" data-style-color="nodeFill"></label><label class="style-control"><span>节点描边</span><input type="color" data-style-color="nodeStroke"></label><label class="style-control"><span>连线</span><input type="color" data-style-color="edgeStroke"></label><label class="style-control"><span>箭头颜色</span><input type="color" data-style-color="arrowFill"></label></div><details data-style-advanced-colors><summary>更多颜色</summary><div class="color-controls"><label class="style-control"><span>节点文字</span><input type="color" data-style-color="nodeText"></label><label class="style-control"><span>连线标签</span><input type="color" data-style-color="edgeLabel"></label><label class="style-control"><span>子图</span><input type="color" data-style-color="subgraphFill"></label><label class="style-control"><span>子图描边</span><input type="color" data-style-color="subgraphStroke"></label></div></details></fieldset><fieldset><legend>几何</legend><div class="style-control style-control-stack" data-style-row="curveStyle"><span>曲线</span><div class="segmented-control" role="group" aria-label="曲线样式"><button type="button" data-style-option="bezier" aria-pressed="true">贝塞尔</button><button type="button" data-style-option="step" aria-pressed="false">折线</button><button type="button" data-style-option="straight" aria-pressed="false">直线</button></div></div><label class="style-control" data-style-row="arrowStyle"><span>箭头类型</span><select data-style-select="arrowStyle"><option value="filled">实心</option><option value="triangle">三角</option><option value="open">开放</option><option value="circle">圆形</option><option value="cross">交叉</option></select></label><label class="style-control range-control" data-style-row="edgeGap"><span>箭头与节点间距</span><output data-style-output="edgeGap"></output><input type="range" min="0" max="24" step="1" aria-label="箭头与节点间距" data-style-number="edgeGap"></label><label class="style-control range-control" data-style-row="arrowSize"><span>箭头大小</span><output data-style-output="arrowSize"></output><input type="range" min="4" max="32" step="1" aria-label="箭头大小" data-style-number="arrowSize"></label><label class="style-control range-control" data-style-row="nodeBorderRadius"><span>节点圆角</span><output data-style-output="nodeBorderRadius"></output><input type="range" min="0" max="24" step="1" aria-label="节点圆角" data-style-number="nodeBorderRadius"></label></fieldset><details data-style-advanced-text><summary>文字与字体</summary><label class="style-control" data-style-row="fontFamily"><span>字体</span><select data-style-select="fontFamily"><option value="sans-serif">系统字体</option><option value="Inter, ui-sans-serif, system-ui, sans-serif">界面字体</option><option value="ui-monospace, SFMono-Regular, Consolas, monospace">等宽字体</option></select></label><label class="style-control range-control" data-style-row="fontSize"><span>字号</span><output data-style-output="fontSize"></output><input type="range" min="10" max="24" step="1" aria-label="字号" data-style-number="fontSize"></label></details></div><footer class="style-drawer-footer" data-style-footer><button type="button" data-style-reset>重置图表样式</button></footer></div></aside></div>
       </section>
     </div>
     <section class="diagnostics diagnostics-bar" data-diagnostics aria-live="polite" aria-atomic="true"></section>
@@ -185,6 +196,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   const mobileThemeButton = required<HTMLButtonElement>(root, '[data-mobile-theme]');
   const previewFitButton = required<HTMLButtonElement>(root, '[data-preview-fit]');
   const previewFullscreenButton = required<HTMLButtonElement>(root, '[data-preview-fullscreen]');
+  const previewMaximizeButton = required<HTMLButtonElement>(root, '[data-preview-maximize]');
   const previewPreviousButton = required<HTMLButtonElement>(root, '[data-preview-previous]');
   const previewNextButton = required<HTMLButtonElement>(root, '[data-preview-next]');
   const previewPosition = required<HTMLElement>(root, '[data-preview-position]');
@@ -288,6 +300,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   }
   previewFitButton.addEventListener('click', refitActiveViewport);
   previewFullscreenButton.addEventListener('click', () => void togglePreviewFullscreen());
+  previewMaximizeButton.addEventListener('click', togglePreviewMaximize);
   previewPreviousButton.addEventListener('pointerdown', event => event.preventDefault());
   previewNextButton.addEventListener('pointerdown', event => event.preventDefault());
   previewPreviousButton.addEventListener('click', () => selectDiagram((state.selectedIndex ?? 0) - 1));
@@ -767,6 +780,9 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     setText('[data-mobile-share-label]', 'action.share');
     setText('[data-mobile-export-label="svg"]', 'action.downloadSvg');
     setText('[data-mobile-export-label="png"]', 'action.downloadPng');
+    setText('[data-project-label]', 'action.project');
+    setText('[data-project-xmermaid]', 'action.openXmermaidRepository');
+    setText('[data-project-live]', 'action.openLiveRepository');
     setText('[data-panel="list"] .panel-heading h2', 'panel.diagrams');
     setText('[data-editor-tab="document"]', 'editor.document');
     setText('[data-editor-tab="diagram"]', 'editor.diagram');
@@ -819,6 +835,9 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     setAttribute('[data-mobile-theme]', 'title', 'theme.toggle');
     setAttribute('[data-mobile-more] > summary', 'aria-label', 'action.more');
     setAttribute('[data-mobile-more] > summary', 'title', 'action.more');
+    setAttribute('[data-project-menu="desktop"] > summary', 'aria-label', 'action.project');
+    setAttribute('[data-project-menu="desktop"] > summary', 'title', 'action.project');
+    setAttribute('[data-product-version]', 'title', 'action.about');
     setAttribute('[data-panel="list"]', 'aria-label', 'panel.diagramList');
     setAttribute('[data-list-collapse]', 'aria-label', layoutPreferences.listCollapsed ? 'action.expandList' : 'action.collapseList');
     setAttribute('[data-list-restore]', 'aria-label', 'action.expandList');
@@ -844,6 +863,8 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     setAttribute('[data-preview-zoom="in"]', 'title', 'canvas.zoomIn');
     setAttribute('[data-preview-fullscreen]', 'aria-label', 'canvas.fullscreen');
     setAttribute('[data-preview-fullscreen]', 'title', 'canvas.fullscreen');
+    setAttribute('[data-preview-maximize]', 'aria-label', 'canvas.maximize');
+    setAttribute('[data-preview-maximize]', 'title', 'canvas.maximize');
     setAttribute('[data-preview-canvas]', 'aria-label', 'canvas.label');
     setAttribute('[data-style-desktop-host]', 'aria-label', 'style.title');
     setAttribute('[data-style-close]', 'aria-label', styleDialog.open ? 'style.done' : 'style.close');
@@ -1051,10 +1072,6 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       await document.exitFullscreen?.();
       return;
     }
-    if (shell.dataset.previewMaximized === 'true') {
-      setPreviewMaximized(false);
-      return;
-    }
     try {
       if (typeof previewPanel.requestFullscreen !== 'function') throw new Error('Fullscreen unavailable');
       await previewPanel.requestFullscreen();
@@ -1062,6 +1079,10 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       setPreviewMaximized(true);
       actionStatus.textContent = t('status.fullscreenFallback');
     }
+  }
+
+  function togglePreviewMaximize(): void {
+    setPreviewMaximized(shell.dataset.previewMaximized !== 'true');
   }
 
   function setPreviewMaximized(maximized: boolean): void {
@@ -1097,13 +1118,14 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   function updatePreviewPresentationControl(): void {
     const fullscreen = document.fullscreenElement === previewPanel;
     const maximized = shell.dataset.previewMaximized === 'true';
-    const label = fullscreen
-      ? t('canvas.exitFullscreen')
-      : maximized
-        ? t('canvas.exitMaximized')
-        : t('canvas.fullscreen');
-    previewFullscreenButton.setAttribute('aria-label', label);
-    previewFullscreenButton.title = label;
+    const fullscreenLabel = t(fullscreen ? 'canvas.exitFullscreen' : 'canvas.fullscreen');
+    const maximizeLabel = t(maximized ? 'canvas.exitMaximized' : 'canvas.maximize');
+    previewFullscreenButton.disabled = maximized;
+    previewMaximizeButton.disabled = fullscreen;
+    previewFullscreenButton.setAttribute('aria-label', fullscreenLabel);
+    previewFullscreenButton.title = fullscreenLabel;
+    previewMaximizeButton.setAttribute('aria-label', maximizeLabel);
+    previewMaximizeButton.title = maximizeLabel;
   }
 
   function renderMinimap(source: SVGSVGElement): void {
