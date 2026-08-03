@@ -447,9 +447,26 @@ test('keeps the compact desktop workspace visible and preserves editor focus thr
   await page.evaluate(() => {
     HTMLElement.prototype.requestFullscreen = () => Promise.reject(new Error('Fullscreen unavailable'));
   });
-  await page.getByRole('button', { name: '全屏预览' }).click();
+  const fullscreen = page.getByRole('button', { name: '全屏预览' });
+  const maximize = page.getByRole('button', { name: '最大化预览' });
+  expect(await fullscreen.locator('svg').innerHTML()).not.toBe(await maximize.locator('svg').innerHTML());
+  await fullscreen.click();
   await expect(page.locator('.app-shell')).toHaveAttribute('data-preview-maximized', 'true');
   await expect(page.locator('[data-preview-stage]')).toHaveAttribute('data-viewport-mode', 'fit');
+  await page.getByRole('button', { name: '退出最大化预览' }).click();
+  await expect(page.locator('.app-shell')).not.toHaveAttribute('data-preview-maximized', 'true');
+});
+
+test('keeps project repositories reachable from the compact More menu', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('./');
+  await page.locator('[data-mobile-more] > summary').click();
+
+  const menu = page.locator('[data-project-menu="mobile"]');
+  await expect(menu).toBeVisible();
+  await expect(menu.locator('a')).toHaveCount(2);
+  await expect(menu.locator('a').nth(0)).toHaveAttribute('href', 'https://github.com/evangwt/xmermaid');
+  await expect(menu.locator('a').nth(1)).toHaveAttribute('href', 'https://github.com/evangwt/xmermaid-live');
 });
 
 test('focuses CodeMirror, scopes the primary select-all shortcut, and colors Mermaid tokens', async ({ page }) => {
