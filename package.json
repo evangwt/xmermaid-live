@@ -21,7 +21,7 @@
     "@codemirror/language": "^6.12.4",
     "@codemirror/state": "^6.7.1",
     "@codemirror/view": "^6.43.7",
-    "@evangwt/xmermaid": "file:vendor/evangwt-xmermaid-0.1.7.tgz",
+    "@evangwt/xmermaid": "file:vendor/evangwt-xmermaid-0.1.8.tgz",
     "@lezer/highlight": "^1.2.3"
   },
   "devDependencies": {

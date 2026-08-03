@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DARK_THEME, type RenderTheme } from '@evangwt/xmermaid';
 import { decodeShareState, type ExportRequest } from '@evangwt/xmermaid/editor';
 import { mountApp, type MountedApp } from '../src/app';
+import { XMERMAID_VERSION } from '../src/product';
 import type { PreviewRenderResult, PreviewRenderer } from '../src/preview-runtime';
 import '../src/styles.css';
 
@@ -107,7 +108,7 @@ describe('mountApp', () => {
 
     expect(document.querySelector('[data-share]')).not.toBeNull();
     expect(document.querySelector('.export-menu')).not.toBeNull();
-    expect(document.querySelector('[data-project-menu="desktop"] [data-product-version]')?.textContent).toBe('xmermaid v0.1.7');
+    expect(document.querySelector('[data-project-menu="desktop"] [data-product-version]')?.textContent).toBe(`xmermaid v${XMERMAID_VERSION}`);
     const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-project-menu="desktop"] a')];
     expect(links.map(link => link.href)).toEqual([
       'https://github.com/evangwt/xmermaid',
