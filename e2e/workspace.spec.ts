@@ -1063,7 +1063,10 @@ test('@cross-browser fits native sequence participants and scoped control blocks
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nsequenceDiagram\n  participant Client as Crane STK Stack Machine\n  participant API as API\n  participant Store as PostgreSQL Task Repository\n  participant Audit as Audit\n  Client->>Client: Publish a snapshot after every observed device state change\n  par Persist task state independently\n    API->>Store: Persist a command that must remain attributable to its physical task generation\n  and Append audit trail independently\n    API->>Audit: Record a committed result for the same command generation\n  end\n```');
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
 
-  const geometry = await page.locator('[data-preview] svg').evaluate(svg => {
+  const preview = page.locator('[data-preview] svg');
+  await expect(preview.locator('.sequence-participant')).toHaveCount(4);
+  await expect(preview.locator('.sequence-block')).toHaveCount(1);
+  const geometry = await preview.evaluate(svg => {
     const box = (element: SVGGraphicsElement) => element.getBBox();
     return {
       viewBoxWidth: (svg as SVGSVGElement).viewBox.baseVal.width,
