@@ -126,6 +126,12 @@ async function expectEditorValue(locator: Locator, expected: string | RegExp): P
   await expect.poll(() => readEditor(locator)).toMatch(expected);
 }
 
+async function waitForSingleDiagramItem(page: Page): Promise<Locator> {
+  const item = page.locator('[data-diagram-item]');
+  await expect(item).toHaveCount(1);
+  return item;
+}
+
 async function expectFilledArrowContinuity(page: Page): Promise<void> {
   const result = await page.locator('[data-preview] svg').evaluate(async svg => {
     const path = svg.querySelector<SVGPathElement>('.edge path');
@@ -1013,8 +1019,7 @@ test('@cross-browser renders declared Sequence participants and actors without a
   await page.goto('./');
   const documentInput = page.getByRole('textbox', { name: '完整文本' });
   await documentInput.fill('```mermaid\nsequenceDiagram\n  participant Alice\n  participant Payments as Payment service\n  actor User\n  User->>Payments: Sign in\n  Payments-->>User: Signed in\n```');
-  const item = page.locator('[data-diagram-item]');
-  await expect(item).toHaveCount(1);
+  const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'sequence');
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
@@ -1139,8 +1144,7 @@ test('@cross-browser renders the partial Entity Relationship subset and keeps it
   await page.goto('./');
   const documentInput = page.getByRole('textbox', { name: '完整文本' });
   await documentInput.fill('```mermaid\nerDiagram\n  CUSTOMER ||--o{ ORDER : places\n```');
-  const item = page.locator('[data-diagram-item]');
-  await expect(item).toHaveCount(1);
+  const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'er');
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
@@ -1155,8 +1159,7 @@ test('@cross-browser renders the partial Entity Relationship subset and keeps it
 test('@cross-browser renders the partial Gantt subset and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\ngantt\n  section Build\n  Compile : 2026-07-28, 2d\n```');
-  const item = page.locator('[data-diagram-item]');
-  await expect(item).toHaveCount(1);
+  const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'gantt');
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
@@ -1169,7 +1172,7 @@ test('@cross-browser renders the partial Gantt subset and keeps its capability b
 test('@cross-browser renders partial Pie slices and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\npie title Deployment\n  "Passed" : 80\n  "Failed" : 20\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'pie');
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
@@ -1182,7 +1185,7 @@ test('@cross-browser renders partial Pie slices and keeps its capability boundar
 test('@cross-browser renders native partial XY chart bars and lines', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nxychart-beta\n  title "Quarterly revenue"\n  x-axis [Q1, Q2]\n  y-axis "Revenue" 0 --> 100\n  bar [20, 40]\n  line [30, 50]\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'xychart');
@@ -1197,7 +1200,7 @@ test('@cross-browser renders native partial XY chart bars and lines', async ({ p
 test('@cross-browser renders native partial Sankey bands and nodes', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nsankey\nA,B,8\nA,C,4\nB,D,8\nC,D,4\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'sankey');
@@ -1211,7 +1214,7 @@ test('@cross-browser renders native partial Sankey bands and nodes', async ({ pa
 test('@cross-browser renders native partial Quadrant Chart cells and points', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nquadrantChart\n  title Reach and engagement\n  x-axis Low Reach --> High Reach\n  y-axis Low Engagement --> High Engagement\n  quadrant-1 Expand\n  quadrant-2 Promote\n  quadrant-3 Re-evaluate\n  quadrant-4 Improve\n  Campaign A: [0.25, 0.75]\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'quadrant');
@@ -1226,7 +1229,7 @@ test('@cross-browser renders native partial Quadrant Chart cells and points', as
 test('@cross-browser renders partial Architecture Diagram services and relationships', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\narchitecture-beta\n  service db(database)[Database]\n  service api(server)[API]\n  db:R --> L:api\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'architecture');
@@ -1239,7 +1242,7 @@ test('@cross-browser renders partial Architecture Diagram services and relations
 test('@cross-browser renders native partial Block Diagram grid cells and relationships', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nblock-beta\n  columns 3\n  A B C\n  Wide:2 D\n  A --> B\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'block');
@@ -1253,7 +1256,7 @@ test('@cross-browser renders native partial Block Diagram grid cells and relatio
 test('@cross-browser renders native partial Kanban columns and task cards', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nkanban\n  todo[To do]\n    write[Write documentation]\n  doing[In progress]\n    ship[Ship renderer]\n  done[Done]\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'kanban');
@@ -1267,7 +1270,7 @@ test('@cross-browser renders native partial Kanban columns and task cards', asyn
 test('@cross-browser renders native partial Treemap groups and weighted leaves', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\ntreemap-beta\n"Category A"\n    "Item A1": 10\n    "Item A2": 20\n"Category B"\n    "Item B1": 15\n    "Item B2": 25\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'treemap');
@@ -1282,7 +1285,7 @@ test('@cross-browser renders native partial Treemap groups and weighted leaves',
 test('@cross-browser renders native partial Radar axes and curve polygons', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nradar-beta\n  title Restaurant Comparison\n  axis food["Food Quality"], service["Service"], price["Price"], ambiance["Ambiance"]\n  curve a["Restaurant A"]{4, 3, 2, 4}\n  curve b["Restaurant B"]{3, 4, 3, 3}\n  min 0\n  max 5\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'radar');
@@ -1299,7 +1302,7 @@ test('@cross-browser renders native partial Radar axes and curve polygons', asyn
 test('@cross-browser renders native partial Packet bit fields', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\npacket\ntitle UDP Packet\n+16: "Source Port"\n+16: "Destination Port"\n32-47: "Length"\n48-63: "Checksum"\n64-95: "Data (variable length)"\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'packet');
@@ -1316,7 +1319,7 @@ test('@cross-browser renders native partial Packet bit fields', async ({ page })
 test('@cross-browser renders native partial Venn sets and unions', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nvenn-beta\n  title "Team overlap"\n  set Frontend\n  set Backend\n  union Frontend,Backend["APIs"]\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'venn');
@@ -1330,7 +1333,7 @@ test('@cross-browser renders native partial Venn sets and unions', async ({ page
 test('@cross-browser renders native partial Swimlanes with lane labels and cross-lane arrows', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nswimlane-beta LR\n  subgraph Customer\n    request[Request service]\n    receive[Receive update]\n  end\n\n  subgraph Support\n    triage[Triage request]\n    answer[Send answer]\n  end\n\n  request --> triage\n  triage -->|Known issue| answer\n  answer --> receive\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'swimlanes');
@@ -1345,7 +1348,7 @@ test('@cross-browser renders native partial Swimlanes with lane labels and cross
 test('@cross-browser renders native partial Treeview hierarchies', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\ntree\n  Product\n    Mobile\n      iOS\n      Android\n    Web\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'treeview');
@@ -1359,7 +1362,7 @@ test('@cross-browser renders native partial Treeview hierarchies', async ({ page
 test('@cross-browser renders native partial Ishikawa causes and effect', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nishikawa-beta\n  Blurry Photo\n  Process\n    Out of focus\n    Shutter speed too slow\n  Equipment\n    Lens\n      Dirty lens\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'ishikawa');
@@ -1374,7 +1377,7 @@ test('@cross-browser renders native partial Ishikawa causes and effect', async (
 test('@cross-browser renders native partial Event Modeling frames and lanes', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\neventmodeling\n  tf 01 ui CartUI\n  tf 02 cmd AddItem\n  tf 03 evt ItemAdded\n  rf 04 evt External.InventoryChanged\n  timeframe 05 readmodel CartSummary\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'event-modeling');
@@ -1389,7 +1392,7 @@ test('@cross-browser renders native partial Event Modeling frames and lanes', as
 test('@cross-browser renders native partial Wardley Map coordinates and dependencies', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nwardley-beta\ntitle Tea shop value chain\nanchor Business [0.95, 0.63]\ncomponent Tea [0.63, 0.81]\ncomponent Kettle [0.43, 0.35]\nBusiness -> Tea\nTea -> Kettle\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'wardley');
@@ -1405,7 +1408,7 @@ test('@cross-browser renders native partial Wardley Map coordinates and dependen
 test('@cross-browser renders native partial Cynefin domains, items, and transitions', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\ncynefin-beta\ntitle Incident Response\n\ncomplex\n"Investigate root cause"\n\ncomplicated\n"Expert review needed"\n\nclear\n"Restart service"\n\nchaotic\n"Page on-call immediately"\n\nconfusion\n"Unknown failure mode"\n\ncomplex --> complicated : "Pattern identified"\nclear --> chaotic : "Complacency"\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'cynefin');
@@ -1423,7 +1426,7 @@ test('@cross-browser renders native partial Cynefin domains, items, and transiti
 test('@cross-browser renders partial User Journey tasks and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\njourney\n  title Checkout\n  section Explore\n    Find product: 5: Buyer\n  section Purchase\n    Pay securely: 4: Buyer, Store\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'user-journey');
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
@@ -1436,7 +1439,7 @@ test('@cross-browser renders partial User Journey tasks and keeps its capability
 test('@cross-browser renders partial Timeline entries and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\ntimeline\n  title Product history\n  2024 : First release\n       : Team grows\n  2025 : Global launch\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'timeline');
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
@@ -1447,7 +1450,7 @@ test('@cross-browser renders partial Timeline entries and keeps its capability b
 test('@cross-browser renders partial Mindmap hierarchies and keeps its capability boundary visible', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nmindmap\n  Root\n    Product\n      Editor\n    Renderer\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'mindmap');
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
@@ -1460,7 +1463,7 @@ test('@cross-browser renders partial Mindmap hierarchies and keeps its capabilit
 test('@cross-browser renders partial Requirement blocks and semantic relationships', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nrequirementDiagram\n  requirement Login {\n    id: 1\n    text: User must log in\n    risk: high\n    verifymethod: test\n  }\n  functionalRequirement Authenticate {\n    text: Validate credentials\n  }\n  Login - satisfies -> Authenticate\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'requirement');
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
@@ -1474,7 +1477,7 @@ test('@cross-browser renders partial Requirement blocks and semantic relationshi
 test('@cross-browser renders partial GitGraph branches and merges', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\ngitGraph\n  commit id: "ZERO" tag: "v0.1.0"\n  branch develop\n  checkout develop\n  commit id: "FEATURE"\n  checkout main\n  merge develop id: "RELEASE" tag: "v1.0.0"\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'gitgraph');
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
@@ -1488,7 +1491,7 @@ test('@cross-browser renders partial GitGraph branches and merges', async ({ pag
 test('@cross-browser renders partial C4 system landscapes and relationships', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nC4Context\n  title Internet Banking\n  Person(customer, "Customer")\n  System(banking, "Internet Banking")\n  System_Ext(email, "E-mail system")\n  Rel(customer, banking, "Uses")\n  Rel(banking, email, "Sends mail")\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'c4');
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
@@ -1502,7 +1505,7 @@ test('@cross-browser renders partial C4 system landscapes and relationships', as
 test('@cross-browser renders partial ZenUML calls and returns with distinct edge semantics', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nzenuml\n  Alice->Bob: Authenticate\n  Bob-->Alice: Token\n```');
-  const item = page.locator('[data-diagram-item]');
+  const item = await waitForSingleDiagramItem(page);
   const preview = page.locator('[data-preview]');
 
   await expect(item).toHaveAttribute('data-diagram-type', 'zenuml');
