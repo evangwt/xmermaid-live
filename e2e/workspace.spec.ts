@@ -1741,15 +1741,15 @@ flowchart TD
   await page.goto('./');
 
   const documentEditor = page.getByRole('textbox', { name: '完整文本' });
-  const elapsedMs = await documentEditor.evaluate((element, value) => {
-    element.focus();
-    document.execCommand('selectAll');
-    const startedAt = performance.now();
-    document.execCommand('insertText', false, value);
-    return performance.now() - startedAt;
-  }, thousandDiagrams);
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await documentEditor.click();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.evaluate(value => navigator.clipboard.writeText(value), thousandDiagrams);
+  const startedAt = await page.evaluate(() => performance.now());
+  await page.keyboard.press('ControlOrMeta+V');
+  const elapsedMs = await page.evaluate(start => performance.now() - start, startedAt);
   await expect(page.locator('[data-diagram-item]')).toHaveCount(1_000);
-  expect(elapsedMs).toBeLessThan(12_000);
+  expect(elapsedMs).toBeLessThan(1_500);
   expectPrivateRequests();
 });
 
