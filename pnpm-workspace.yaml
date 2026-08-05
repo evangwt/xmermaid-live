@@ -1,2 +1,2 @@
 minimumReleaseAgeExclude:
-  - '@evangwt/xmermaid@0.1.4'
+  - '@evangwt/xmermaid@0.1.4 || 0.1.9'

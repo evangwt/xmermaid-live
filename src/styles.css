@@ -127,7 +127,7 @@ button, summary, select, input[type="color"], input[type="range"] { cursor: poin
 .topbar button,
 .mobile-nav button,
 .style-drawer button { padding: 7px 11px; }
-.topbar [data-locale-select] { min-height: 38px; padding: 6px 26px 6px 9px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); background: var(--surface-raised); }
+.topbar [data-locale-select] { min-width: 148px; min-height: 38px; padding: 6px 26px 6px 9px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); background: var(--surface-raised); }
 .topbar button:hover,
 .topbar summary:hover,
 .mobile-nav button:hover,
@@ -349,7 +349,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 }
 .preview-canvas-controls { position: absolute; z-index: 2; top: 8px; right: 8px; }
 [data-preview-zoom-value] { min-width: 38px; padding: 0 5px; color: var(--text-muted); font: 650 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace; text-align: center; font-variant-numeric: tabular-nums; }
-.preview-stage { position: absolute; inset: 0 auto auto 0; transform-origin: 0 0; will-change: auto; }
+.preview-stage { position: absolute; inset: 0 auto auto 0; direction: ltr; transform-origin: 0 0; will-change: auto; }
 .preview-canvas[data-panning="true"] { cursor: grabbing; }
 .preview-canvas:has(.preview-stage svg) { cursor: grab; }
 .preview-stage svg { display: block; width: auto; height: auto; max-width: none; max-height: none; shape-rendering: geometricPrecision; text-rendering: geometricPrecision; }
@@ -471,7 +471,7 @@ input:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   .topbar-actions > details > summary { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 11px; }
   .topbar-actions > button svg,
   .topbar-actions > details > summary svg { width: 20px; height: 20px; display: block; }
-  .topbar [data-locale-select] { width: 76px; min-height: 44px; padding-inline: 7px; font-size: 12px; }
+  .topbar [data-locale-select] { width: 132px; min-width: 132px; min-height: 44px; padding-inline: 7px; font-size: 12px; }
   .compact-theme-button,
   .mobile-more-menu { display: block; }
   .mobile-more-menu { position: relative; }
@@ -531,6 +531,11 @@ input:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   [data-style-close] { width: auto; min-width: 56px; padding-inline: 10px; font-size: 13px; }
   .style-close-desktop { display: none; }
   .style-close-compact { display: inline; }
+}
+
+@media (max-width: 420px) {
+  .brand-copy { display: none; }
+  .topbar [data-locale-select] { width: 148px; min-width: 148px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -20,7 +20,15 @@ import {
   type WorkspaceLayoutPreferences,
 } from './layout-preferences';
 import { icon } from './icons';
-import { createTranslator, parseLocale, type Locale, type MessageKey } from './i18n';
+import {
+  LOCALE_LABELS,
+  SUPPORTED_LOCALES,
+  createTranslator,
+  localeDirection,
+  parseLocale,
+  type Locale,
+  type MessageKey,
+} from './i18n';
 import { createCodeEditor, type CodeEditor } from './code-editor';
 import { normalizePreviewSvg } from './preview-svg';
 import { XMERMAID_LIVE_REPOSITORY_URL, XMERMAID_REPOSITORY_URL, XMERMAID_VERSION } from './product';
@@ -72,6 +80,10 @@ const PROJECT_MENU_CONTENT = `
   <a href="${XMERMAID_LIVE_REPOSITORY_URL}" target="_blank" rel="noopener noreferrer">${icon('external-link')}<span data-project-live></span></a>
   <span data-product-version>xmermaid v${XMERMAID_VERSION}</span>`;
 
+const LOCALE_OPTIONS = SUPPORTED_LOCALES
+  .map(locale => `<option value="${locale}">${LOCALE_LABELS[locale]}</option>`)
+  .join('');
+
 const SHELL = `
   <div class="app-shell" data-studio-layout="aurora" data-mobile-panel="edit" data-workspace-theme="dark">
     <header class="topbar">
@@ -82,7 +94,7 @@ const SHELL = `
       </div>
       <div class="topbar-actions" data-toolbar>
         <span class="action-status" data-action-status aria-live="polite"></span>
-        <select data-locale-select aria-label="界面语言"><option value="zh-CN">简体中文</option><option value="en">English</option></select>
+        <select data-locale-select aria-label="界面语言">${LOCALE_OPTIONS}</select>
         <div class="theme-switch" role="group" aria-label="工作台主题">
           <button type="button" data-theme-option="dark" aria-pressed="true">深色</button>
           <button type="button" data-theme-option="light" aria-pressed="false">浅色</button>
@@ -154,7 +166,8 @@ const MAX_SHARE_HASH_LENGTH = 50_000;
 const COMPACT_LAYOUT_QUERY = '(max-width: 1024px)';
 
 export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
-  const originalDocumentLanguage = document.documentElement.lang;
+  const originalDocumentLanguage = document.documentElement.getAttribute('lang');
+  const originalDocumentDirection = document.documentElement.getAttribute('dir');
   let locale = options.initialLocale ?? 'en';
   let translator = createTranslator(locale);
   const t = (key: MessageKey, values?: Record<string, string | number>) => translator.text(key, values);
@@ -747,7 +760,8 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       for (const frame of animationFrames) window.cancelAnimationFrame(frame);
       if (panningPointerId !== null && previewCanvas.hasPointerCapture(panningPointerId)) previewCanvas.releasePointerCapture(panningPointerId);
       document.body.classList.remove('canvas-panning');
-      document.documentElement.lang = originalDocumentLanguage;
+      restoreDocumentAttribute('lang', originalDocumentLanguage);
+      restoreDocumentAttribute('dir', originalDocumentDirection);
       documentEditor.destroy();
       diagramEditor.destroy();
       runtime.dispose();
@@ -877,6 +891,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     setAttribute('[data-mobile-navigation]', 'aria-label', 'navigation.workspace');
     localeSelect.value = locale;
     document.documentElement.lang = locale;
+    document.documentElement.dir = localeDirection(locale);
   }
 
   function applyLocale(value: string): void {
@@ -1224,6 +1239,14 @@ function required<T extends Element>(root: ParentNode, selector: string): T {
   const element = root.querySelector<T>(selector);
   if (!element) throw new Error(`Missing application element: ${selector}`);
   return element;
+}
+
+function restoreDocumentAttribute(name: 'dir' | 'lang', value: string | null): void {
+  if (value === null) {
+    document.documentElement.removeAttribute(name);
+    return;
+  }
+  document.documentElement.setAttribute(name, value);
 }
 
 function syncValue(input: HTMLTextAreaElement, value: string): void {

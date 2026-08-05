@@ -10,7 +10,7 @@ const copiedPath = new URL('../public/xmermaid_wasm_bg.wasm', import.meta.url);
 const packagePath = new URL('../node_modules/@evangwt/xmermaid/dist/xmermaid_wasm_bg.wasm', import.meta.url);
 const projectPackagePath = new URL('../package.json', import.meta.url);
 const lockfilePath = new URL('../package-lock.json', import.meta.url);
-const packageSpec = '0.1.9';
+const packageSpec = '0.1.10';
 
 describe('copy-xmermaid-wasm', () => {
   it('uses the scoped SDK package artifact selected for this build', async () => {
@@ -40,11 +40,11 @@ describe('copy-xmermaid-wasm', () => {
 
     expect(projectPackage.dependencies['@evangwt/xmermaid']).toBe(packageSpec);
     expect(packageLock.packages['node_modules/@evangwt/xmermaid']).toMatchObject({
-      version: '0.1.9',
-      resolved: 'https://registry.npmjs.org/@evangwt/xmermaid/-/xmermaid-0.1.9.tgz',
+      version: '0.1.10',
+      resolved: 'https://registry.npmjs.org/@evangwt/xmermaid/-/xmermaid-0.1.10.tgz',
       integrity: expect.stringMatching(/^sha512-/),
     });
-    expect(installedPackage).toMatchObject({ name: '@evangwt/xmermaid', version: '0.1.9' });
+    expect(installedPackage).toMatchObject({ name: '@evangwt/xmermaid', version: '0.1.10' });
     expect(wasm.byteLength).toBeGreaterThan(0);
   });
 

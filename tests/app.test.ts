@@ -95,6 +95,32 @@ describe('mountApp', () => {
     expect(documentInput.getAttribute('aria-label')).toBe('完整文本');
   });
 
+  it('keeps a visible native language selector and applies Arabic RTL without losing workspace state', () => {
+    const persistLocale = vi.fn();
+    mounted = mountApp(root(), { initialText: DOCUMENT, initialLocale: 'en', persistLocale, renderer });
+    const localeSelect = document.querySelector<HTMLSelectElement>('[data-locale-select]')!;
+    const documentInput = document.querySelector<HTMLTextAreaElement>('[data-document-input]')!;
+
+    expect(localeSelect.tagName).toBe('SELECT');
+    expect([...localeSelect.options].map(option => [option.value, option.textContent])).toContainEqual(['ar', 'العربية']);
+    expect(localeSelect.options).toHaveLength(12);
+    expect(getComputedStyle(localeSelect).minWidth).toBe('148px');
+
+    localeSelect.value = 'ar';
+    localeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(document.documentElement.getAttribute('lang')).toBe('ar');
+    expect(document.documentElement.getAttribute('dir')).toBe('rtl');
+    expect(getComputedStyle(document.querySelector<HTMLElement>('.cm-content')!).direction).toBe('ltr');
+    expect(getComputedStyle(document.querySelector<HTMLElement>('[data-preview]')!).direction).toBe('ltr');
+    expect(documentInput.value).toBe(DOCUMENT);
+    expect(persistLocale).toHaveBeenCalledWith('ar');
+
+    mounted.destroy();
+    mounted = null;
+    expect(document.documentElement.hasAttribute('dir')).toBe(false);
+  });
+
   it('presents the workspace as a focused diagram studio', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
 

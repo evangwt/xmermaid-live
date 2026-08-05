@@ -85,7 +85,7 @@ Share links are limited to an encoded URL hash of 50,000 characters. Longer docu
 
 ## xmermaid dependency
 
-Builds install the exact `@evangwt/xmermaid@0.1.9` release from `registry.npmjs.org`. The npm release carries signed provenance linked to the public [xmermaid repository](https://github.com/evangwt/xmermaid), so this repository does not commit duplicate package archives.
+Builds install the exact `@evangwt/xmermaid@0.1.10` release from `registry.npmjs.org`. The npm release carries signed provenance linked to the public [xmermaid repository](https://github.com/evangwt/xmermaid), so this repository does not commit duplicate package archives.
 
 ## License
 

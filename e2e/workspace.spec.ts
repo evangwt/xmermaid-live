@@ -67,7 +67,10 @@ flowchart LR
 `;
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('xmermaid-live.locale.v1', 'zh-CN'));
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('i18n-preferences-configured') === '1') return;
+    localStorage.setItem('xmermaid-live.locale.v1', 'zh-CN');
+  });
 });
 
 function monitorPrivacy(page: Page): () => void {
@@ -352,28 +355,66 @@ async function expectResponsiveGeometry(page: Page): Promise<void> {
   }
 }
 
-test('loads, switches, and persists the interface locale without losing the document', async ({ page }) => {
+test('selects, switches, and persists the interface locale without losing the document', async ({ page }) => {
   await page.addInitScript(() => {
-    if (sessionStorage.getItem('i18n-default-tested') === '1') return;
+    if (sessionStorage.getItem('i18n-preferences-configured') === '1') return;
     localStorage.removeItem('xmermaid-live.locale.v1');
-    Object.defineProperty(navigator, 'language', { configurable: true, value: 'zh-CN' });
-    sessionStorage.setItem('i18n-default-tested', '1');
+    Object.defineProperty(navigator, 'languages', { configurable: true, value: ['ja-JP', 'en-US'] });
+    Object.defineProperty(navigator, 'language', { configurable: true, value: 'ja-JP' });
+    sessionStorage.setItem('i18n-preferences-configured', '1');
   });
   await page.goto('/');
 
-  const documentInput = page.getByRole('textbox', { name: 'Full document' });
+  const documentInput = page.getByRole('textbox', { name: '完全な文書' });
   await expect(documentInput).toBeVisible();
   const sourceBeforeSwitch = await readEditor(documentInput);
-  await expect(page.locator('[data-locale-select]')).toHaveValue('en');
+  const localeSelect = page.locator('[data-locale-select]');
+  await expect(localeSelect).toHaveValue('ja');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
 
-  await page.locator('[data-locale-select]').selectOption('zh-CN');
-  await expect(page.getByRole('textbox', { name: '完整文本' })).toBeVisible();
-  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
-  await expectEditorValue(page.getByRole('textbox', { name: '完整文本' }), sourceBeforeSwitch);
+  await localeSelect.selectOption('ar');
+  await expect(page.getByRole('textbox', { name: 'وثيقة كاملة' })).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expectEditorValue(page.getByRole('textbox', { name: 'وثيقة كاملة' }), sourceBeforeSwitch);
+  await expect.poll(() => page.locator('[data-document-editor] .cm-content').evaluate(element => getComputedStyle(element).direction)).toBe('ltr');
+  await expect.poll(() => page.locator('[data-preview]').evaluate(element => getComputedStyle(element).direction)).toBe('ltr');
 
   await page.reload();
-  await expect(page.locator('[data-locale-select]')).toHaveValue('zh-CN');
-  await expect(page.getByRole('textbox', { name: '完整文本' })).toBeVisible();
+  await expect(localeSelect).toHaveValue('ar');
+  await expect(page.getByRole('textbox', { name: 'وثيقة كاملة' })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(localeSelect).toBeVisible();
+  expect((await localeSelect.boundingBox())?.width).toBeGreaterThanOrEqual(132);
+
+  await page.setViewportSize({ width: 320, height: 844 });
+  const topbarBoxes = await page.locator('.topbar').evaluate(topbar => {
+    const brand = topbar.querySelector<HTMLElement>('.brand')!.getBoundingClientRect();
+    const actions = topbar.querySelector<HTMLElement>('.topbar-actions')!.getBoundingClientRect();
+    return {
+      overlaps: brand.left < actions.right
+        && actions.left < brand.right
+        && brand.top < actions.bottom
+        && actions.top < brand.bottom,
+      localeWidth: topbar.querySelector<HTMLElement>('[data-locale-select]')!.getBoundingClientRect().width,
+    };
+  });
+  expect(topbarBoxes.overlaps).toBe(false);
+  expect(topbarBoxes.localeWidth).toBeGreaterThanOrEqual(148);
+});
+
+test('falls back to English for an unmatched browser language', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.removeItem('xmermaid-live.locale.v1');
+    Object.defineProperty(navigator, 'languages', { configurable: true, value: ['xx-XX'] });
+    Object.defineProperty(navigator, 'language', { configurable: true, value: 'xx-XX' });
+  });
+  await page.goto('/');
+
+  await expect(page.locator('[data-locale-select]')).toHaveValue('en');
+  await expect(page.getByRole('textbox', { name: 'Full document' })).toBeVisible();
 });
 
 test('renders every built-in default example from a clean workspace', async ({ page }) => {
@@ -386,14 +427,14 @@ test('renders every built-in default example from a clean workspace', async ({ p
 
   const preview = page.locator('[data-preview] svg');
   await expect(preview).toBeVisible();
-  await expect(page.locator('[data-preview-status]')).toHaveText('Updated');
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
 
   for (let index = 1; index <= DEFAULT_DIAGRAM_TYPES.length; index += 1) {
     const previousSvg = await preview.evaluate(svg => svg.outerHTML);
     await items.nth(index).click();
     await expect(items.nth(index)).toHaveAttribute('aria-current', 'true');
     await expect.poll(() => preview.evaluate(svg => svg.outerHTML)).not.toBe(previousSvg);
-    await expect(page.locator('[data-preview-status]')).toHaveText('Updated');
+    await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
   }
 });
 

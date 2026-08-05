@@ -34,7 +34,11 @@ const initialThemePreferences = savedThemePreferences
   : cachedWorkspace?.themePreferences
     ? parseThemePreferences(JSON.stringify(cachedWorkspace.themePreferences))
     : parseThemePreferences(null);
-const initialLocale = resolveLocale(safeRead(LOCALE_STORAGE_KEY), navigator.language);
+const initialLocale = resolveLocale(
+  safeRead(LOCALE_STORAGE_KEY),
+  navigator.languages,
+  navigator.language,
+);
 const workspaceCacheWriter = createWorkspaceCacheWriter({
   storage: safeStorage(),
   key: WORKSPACE_STORAGE_KEY,

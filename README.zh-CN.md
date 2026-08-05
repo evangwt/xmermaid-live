@@ -85,7 +85,7 @@ npm run build
 
 ## xmermaid 依赖
 
-构建从 `registry.npmjs.org` 安装精确版本 `@evangwt/xmermaid@0.1.9`。npm 发布包携带关联公开 [xmermaid 仓库](https://github.com/evangwt/xmermaid)的签名 provenance，因此本仓库不再重复提交包归档。
+构建从 `registry.npmjs.org` 安装精确版本 `@evangwt/xmermaid@0.1.10`。npm 发布包携带关联公开 [xmermaid 仓库](https://github.com/evangwt/xmermaid)的签名 provenance，因此本仓库不再重复提交包归档。
 
 ## 开源许可
 

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 const canonicalUrl = 'https://evangwt.github.io/xmermaid-live/';
 const indexPath = resolve(process.cwd(), 'index.html');
+const mainPath = resolve(process.cwd(), 'src/main.ts');
 const robotsPath = resolve(process.cwd(), 'public/robots.txt');
 const sitemapPath = resolve(process.cwd(), 'public/sitemap.xml');
 const llmsPath = resolve(process.cwd(), 'public/llms.txt');
@@ -38,16 +39,16 @@ describe('GitHub Pages discovery resources', () => {
     expect(gitignore).toMatch(/^docs\/superpowers\/$/m);
     expect(gitignore).toMatch(/^vendor\/\*\.tgz$/m);
     expect(npmrc).toBe('registry=https://registry.npmjs.org/\nreplace-registry-host=always\n');
-    expect(packageSpec).toBe('0.1.9');
+    expect(packageSpec).toBe('0.1.10');
     expect(lockedPackages[''].resolved).toBeUndefined();
     expect(lockedPackages['node_modules/@evangwt/xmermaid'].resolved)
-      .toBe('https://registry.npmjs.org/@evangwt/xmermaid/-/xmermaid-0.1.9.tgz');
+      .toBe('https://registry.npmjs.org/@evangwt/xmermaid/-/xmermaid-0.1.10.tgz');
     expect(packageLock).not.toContain('registry.npmmirror.com');
     expect(packageLock).not.toContain('file:vendor');
   });
 
-  it('exposes bilingual canonical metadata and truthful SoftwareApplication JSON-LD', async () => {
-    const html = await readFile(indexPath, 'utf8');
+  it('exposes the complete UI locale catalog and startup language preferences', async () => {
+    const [html, main] = await Promise.all([readFile(indexPath, 'utf8'), readFile(mainPath, 'utf8')]);
     const jsonLd = html.match(/<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/)?.[1];
 
     expect(html).toContain('<title>xmermaid live — Mermaid 图表在线编辑器 / Mermaid Diagram Editor</title>');
@@ -67,8 +68,10 @@ describe('GitHub Pages discovery resources', () => {
       url: canonicalUrl,
       applicationCategory: 'DeveloperApplication',
       operatingSystem: 'Web Browser',
-      inLanguage: ['zh-CN', 'en'],
+      inLanguage: ['zh-CN', 'zh-TW', 'en', 'ja', 'ko', 'es', 'fr', 'de', 'it', 'pt-BR', 'ru', 'ar'],
     });
+    expect(main).toContain('navigator.languages');
+    expect(main).toContain('navigator.language');
   });
 
   it('provides crawler and AI-discovery resources that agree on the canonical URL', async () => {
