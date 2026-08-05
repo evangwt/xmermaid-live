@@ -968,6 +968,47 @@ test('reports an invalid flowchart without replacing the last successful SVG', a
   expectPrivateRequests();
 });
 
+test('@cross-browser renders safe Flowchart class styles through the installed npm package', async ({ page }) => {
+  const expectPrivateRequests = monitorPrivacy(page);
+
+  await page.goto('./');
+  await page.getByRole('tab', { name: '当前图表' }).click();
+  await page.getByRole('textbox', { name: '当前图表' }).fill([
+    'flowchart TD',
+    '  A[Start] --> B[Finish]',
+    '  classDef emphasis fill:#ff0000,stroke:#990000,color:#ffffff',
+    '  class A emphasis',
+  ].join('\n'));
+
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  const node = page.locator('[data-preview] #node-A');
+  await expect(node.locator('rect')).toHaveAttribute('fill', '#ff0000');
+  await expect(node.locator('rect')).toHaveAttribute('stroke', '#990000');
+  await expect(node.locator('text')).toHaveAttribute('fill', '#ffffff');
+  await expect(page.locator('[data-export-svg]')).toBeEnabled();
+  await expect(page.locator('[data-export-png]')).toBeEnabled();
+  expectPrivateRequests();
+});
+
+test('@cross-browser reports malformed Flowchart class styles from the installed npm package and blocks export', async ({ page }) => {
+  const expectPrivateRequests = monitorPrivacy(page);
+
+  await page.goto('./');
+  await page.getByRole('tab', { name: '当前图表' }).click();
+  await page.getByRole('textbox', { name: '当前图表' }).fill([
+    'flowchart TD',
+    '  A[Start]',
+    '  classDef emphasis fill:red',
+    '  class A emphasis',
+  ].join('\n'));
+
+  await expect(page.locator('[data-preview-status]')).toHaveText('预览未更新');
+  await expect(page.locator('[data-diagnostics]')).toContainText('classDef statements only support');
+  await expect(page.locator('[data-export-svg]')).toBeDisabled();
+  await expect(page.locator('[data-export-png]')).toBeDisabled();
+  expectPrivateRequests();
+});
+
 test('@cross-browser renders declared Sequence participants and actors without an error', async ({ page }) => {
   await page.goto('./');
   const documentInput = page.getByRole('textbox', { name: '完整文本' });
@@ -1559,6 +1600,7 @@ test('uses the single-panel layout before the desktop grid would clip', async ({
 test('persists desktop pane proportions without persisting the canvas viewport', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('./');
+  await expect(page.locator('[data-preview] svg')).toBeVisible();
   const workspace = page.locator('.workspace');
   const divider = page.getByRole('separator', { name: '调整图表列表宽度' });
   const before = await workspace.evaluate(element => getComputedStyle(element).getPropertyValue('--list-width'));

@@ -7,3 +7,10 @@ test-results/
 .omx/
 coverage/
 .DS_Store
+
+# Local planning artifacts
+.superpowers/
+docs/superpowers/
+
+# Local package artifacts
+vendor/*.tgz

@@ -1,8 +1,0 @@
-{
-  "sourceRemote": "https://github.com/evangwt/xmermaid.git",
-  "sourceBaseCommit": "d214594778f9876eb1b604bf5e66b7230032c629",
-  "packageFile": "vendor/evangwt-xmermaid-0.1.8.tgz",
-  "packageSha256": "b775b5b0493aba573e63a616248e7fe9722bc80c75b276bf435d982e09dfc14a",
-  "wasmSha256": "36b0447a8e39ef359839a43c7cc1e3aba9ce6204147cb687e9eb0423738f696a",
-  "sourceBuildInputDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-}

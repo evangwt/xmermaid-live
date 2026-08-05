@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DARK_THEME, type RenderTheme } from '@evangwt/xmermaid';
+import { DARK_THEME, XMermaidError, type RenderTheme } from '@evangwt/xmermaid';
 import { decodeShareState, type ExportRequest } from '@evangwt/xmermaid/editor';
 import { mountApp, type MountedApp } from '../src/app';
 import { XMERMAID_VERSION } from '../src/product';
@@ -455,6 +455,55 @@ describe('mountApp', () => {
     expect(pngButton.disabled).toBe(true);
     svgButton.click();
     expect(exporter).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps safe Flowchart class styles in the preview SVG', async () => {
+    vi.useFakeTimers();
+    const classStyledSource = [
+      'flowchart TD',
+      '  A[Start] --> B[Finish]',
+      '  classDef emphasis fill:#ff0000,stroke:#990000,color:#ffffff',
+      '  class A emphasis',
+    ].join('\n');
+    const classStyleRenderer: PreviewRenderer = async source => {
+      expect(source).toBe(classStyledSource);
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      const node = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      node.id = 'node-A';
+      node.setAttribute('fill', '#ff0000');
+      node.setAttribute('stroke', '#990000');
+      node.setAttribute('color', '#ffffff');
+      svg.append(node);
+      return { svg, diagnostics: [] };
+    };
+
+    mounted = mountApp(root(), { initialText: classStyledSource, renderer: classStyleRenderer, renderDelayMs: 10 });
+    await vi.runAllTimersAsync();
+
+    const node = document.querySelector<SVGGElement>('[data-preview] #node-A')!;
+    expect(node.getAttribute('fill')).toBe('#ff0000');
+    expect(node.getAttribute('stroke')).toBe('#990000');
+    expect(node.getAttribute('color')).toBe('#ffffff');
+  });
+
+  it('shows malformed Flowchart class styles as diagnostics and disables export', async () => {
+    vi.useFakeTimers();
+    const malformedSource = 'flowchart TD\n  A[Start]\n  classDef emphasis fill:red\n  class A emphasis';
+    const classStyleRenderer: PreviewRenderer = async () => {
+      throw new XMermaidError('RENDER_ERROR', 'Unsupported Flowchart class style.', undefined, [{
+        code: 'unsupported_syntax',
+        message: 'Flowchart classDef statements only support named fill, stroke, and color properties with three- or six-digit hexadecimal values.',
+        severity: 'error',
+        range: null,
+      }]);
+    };
+
+    mounted = mountApp(root(), { initialText: malformedSource, renderer: classStyleRenderer, renderDelayMs: 10 });
+    await vi.runAllTimersAsync();
+
+    expect(document.querySelector('[data-diagnostics]')?.textContent).toContain('classDef statements only support');
+    expect(document.querySelector<HTMLButtonElement>('[data-export-svg]')?.disabled).toBe(true);
+    expect(document.querySelector<HTMLButtonElement>('[data-export-png]')?.disabled).toBe(true);
   });
 
   it('shows export failures as text without creating user-provided markup', async () => {
