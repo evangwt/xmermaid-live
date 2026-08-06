@@ -136,7 +136,7 @@ async function waitForSingleDiagramItem(page: Page): Promise<Locator> {
 }
 
 async function expectFilledArrowContinuity(page: Page): Promise<void> {
-  const result = await page.locator('[data-preview] svg').evaluate(async svg => {
+  const result = await page.locator('[data-preview] > svg.xmermaid-diagram').evaluate(async svg => {
     const path = svg.querySelector<SVGPathElement>('.edge path');
     const polygon = svg.querySelector<SVGPolygonElement>('.edge polygon');
     if (!path || !polygon) throw new Error('Expected a filled-arrow edge.');
@@ -195,7 +195,7 @@ async function expectFilledArrowContinuity(page: Page): Promise<void> {
 }
 
 async function expectTerminalTangentsMatchFilledArrows(page: Page): Promise<Array<{ angle: number; path: string }>> {
-  const edges = await page.locator('[data-preview] svg').evaluate(svg => Array.from(svg.querySelectorAll<SVGGElement>('.edge')).map(edge => {
+  const edges = await page.locator('[data-preview] > svg.xmermaid-diagram').evaluate(svg => Array.from(svg.querySelectorAll<SVGGElement>('.edge')).map(edge => {
     const path = edge.querySelector<SVGPathElement>('path');
     const polygon = edge.querySelector<SVGPolygonElement>('polygon');
     if (!path || !polygon) throw new Error('Expected every tested edge to have a path and filled arrow.');
@@ -254,7 +254,7 @@ async function loadDeployment(page: Page, prefix: '/' | '/xmermaid-live/'): Prom
 
   try {
     await page.goto(`${ORIGIN}${prefix}`);
-    await expect(page.locator('[data-preview] svg')).toBeVisible();
+    await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toBeVisible();
     const wasmResponse = await wasmResponsePromise;
     expect(wasmResponse.ok()).toBe(true);
     expect(wasmResponse.headers()['content-type']).toContain('application/wasm');
@@ -425,7 +425,7 @@ test('renders every built-in default example from a clean workspace', async ({ p
   await expect(items).toHaveCount(DEFAULT_DIAGRAM_TYPES.length + 1);
   expect((await items.evaluateAll(buttons => [...new Set(buttons.map(button => button.dataset.diagramType))].sort()))).toEqual(DEFAULT_DIAGRAM_TYPES);
 
-  const preview = page.locator('[data-preview] svg');
+  const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview).toBeVisible();
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
 
@@ -447,7 +447,7 @@ test('keeps the Ishikawa sample inside its SVG viewBox and gives every preview a
   await ishikawa.click();
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
 
-  const geometry = await page.locator('[data-preview] svg').evaluate(svg => {
+  const geometry = await page.locator('[data-preview] > svg.xmermaid-diagram').evaluate(svg => {
     const viewBox = (svg as SVGSVGElement).viewBox.baseVal;
     const bounds = (svg as SVGGraphicsElement).getBBox();
     return {
@@ -543,7 +543,7 @@ test('extracts, switches, edits, shares, and exports real WASM diagrams', async 
   await page.getByRole('textbox', { name: '完整文本' }).fill(PASTED_DOCUMENT);
 
   await expect(page.locator('[data-diagram-item]')).toHaveCount(2);
-  const previewSvg = page.locator('[data-preview] svg');
+  const previewSvg = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(previewSvg).toContainText('First diagram');
   const firstMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
 
@@ -593,14 +593,14 @@ test('switches paired themes, preserves custom style, and restores it locally', 
   await page.goto('./');
   const shell = page.locator('.app-shell');
   await expect(shell).toHaveAttribute('data-workspace-theme', 'dark');
-  await expect(page.locator('[data-preview] svg')).toHaveCSS('background-color', 'rgb(9, 10, 12)');
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toHaveCSS('background-color', 'rgb(9, 10, 12)');
 
   await page.getByRole('button', { name: '图表样式' }).click();
   await page.getByRole('slider', { name: '箭头大小' }).fill('18');
   await page.getByRole('button', { name: '关闭图表样式' }).click();
   await page.getByRole('button', { name: '浅色' }).click();
   await expect(shell).toHaveAttribute('data-workspace-theme', 'light');
-  await expect(page.locator('[data-preview] svg')).toHaveCSS('background-color', 'rgb(245, 246, 247)');
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toHaveCSS('background-color', 'rgb(245, 246, 247)');
   await page.reload();
 
   await expect(shell).toHaveAttribute('data-workspace-theme', 'light');
@@ -724,13 +724,13 @@ test('@cross-browser routes the reported TD fan-out and preserves the following 
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill(USER_REPORTED_FLOWCHART_DOCUMENT);
   await expect(page.locator('[data-diagram-item]')).toHaveCount(2);
-  await expect(page.locator('[data-preview] svg')).toContainText('Let me think');
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toContainText('Let me think');
 
   await page.getByRole('button', { name: '图表样式' }).click();
   await page.getByRole('button', { name: '折线' }).click();
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
 
-  const fanOut = await page.locator('[data-preview] svg').evaluate(svg => {
+  const fanOut = await page.locator('[data-preview] > svg.xmermaid-diagram').evaluate(svg => {
     const commands = (path: string) => {
       const points: Array<{ x: number; y: number }> = [];
       let x = 0;
@@ -766,26 +766,34 @@ test('@cross-browser routes the reported TD fan-out and preserves the following 
   });
 
   expect(fanOut).toHaveLength(3);
-  const expectedFanOut = new Map([
-    ['One', { targetX: 100, labelX: 212.5 }],
-    ['Two', { targetX: 280, labelX: 302.5 }],
-    ['Three', { targetX: 505, labelX: 415 }],
+  const branchOffsets = new Map([
+    ['One', -180],
+    ['Two', 0],
+    ['Three', 180],
   ]);
+  const source = fanOut[0]!.points[0]!;
   for (const branch of fanOut) {
-    const expected = expectedFanOut.get(branch.label!);
-    expect(expected).toBeDefined();
-    expect(branch.points[0]).toEqual({ x: 325, y: 280 });
-    expect(branch.points[1]).toEqual({ x: 325, y: 310 });
-    expect(branch.points[2]).toEqual({ x: expected!.targetX, y: 310 });
-    expect(branch.points.at(-1)?.x).toBe(expected!.targetX);
-    expect(branch.labelPosition).toEqual({ x: expected!.labelX, y: 310 });
-    expect(branch.arrow.tipX).toBe(expected!.targetX);
+    const offset = branchOffsets.get(branch.label!);
+    expect(offset).toBeDefined();
+    const targetX = source.x + offset!;
+    expect(branch.points[0]).toEqual(source);
+    expect(branch.points.at(-1)?.x).toBe(targetX);
+    expect(branch.labelPosition).toEqual({ x: (source.x + targetX) / 2, y: source.y + 30 });
+    expect(branch.arrow.tipX).toBe(targetX);
     expect(branch.arrow.tipY).toBeGreaterThan(branch.arrow.baseY);
+
+    if (offset === 0) {
+      expect(branch.points).toHaveLength(2);
+    } else {
+      expect(branch.points[1]).toEqual({ x: source.x, y: source.y + 30 });
+      expect(branch.points[2]).toEqual({ x: targetX, y: source.y + 30 });
+      expect(branch.points.at(-1)?.y).toBeGreaterThan(source.y + 30);
+    }
   }
 
   await page.locator('[data-diagram-item]').nth(1).click();
-  await expect(page.locator('[data-preview] svg')).toContainText('WASM');
-  const lrPaths = await page.locator('[data-preview] svg').evaluate(svg => Array.from(svg.querySelectorAll<SVGPathElement>('.edge path'))
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toContainText('WASM');
+  const lrPaths = await page.locator('[data-preview] > svg.xmermaid-diagram').evaluate(svg => Array.from(svg.querySelectorAll<SVGPathElement>('.edge path'))
     .map(path => path.getAttribute('d') ?? ''));
   expect(lrPaths).toHaveLength(3);
   expect(lrPaths.every(path => /^M [\d.]+ 60 H [\d.]+$/.test(path))).toBe(true);
@@ -798,7 +806,7 @@ test('@cross-browser routes the reported TD fan-out through vertical bezier port
   await page.getByRole('button', { name: '贝塞尔' }).click();
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
 
-  const fanOut = await page.locator('[data-preview] svg').evaluate(svg => Array.from(svg.querySelectorAll<SVGGElement>('.edge')).flatMap(edge => {
+  const fanOut = await page.locator('[data-preview] > svg.xmermaid-diagram').evaluate(svg => Array.from(svg.querySelectorAll<SVGGElement>('.edge')).flatMap(edge => {
     const label = edge.querySelector('title')?.textContent;
     if (!['One', 'Two', 'Three'].includes(label ?? '')) return [];
     const path = edge.querySelector<SVGPathElement>('path');
@@ -828,14 +836,19 @@ test('@cross-browser routes the reported TD fan-out through vertical bezier port
   }));
 
   expect(fanOut).toHaveLength(3);
-  const targetXs = new Map([['One', 100], ['Two', 280], ['Three', 505]]);
+  const branchOffsets = new Map([['One', -180], ['Two', 0], ['Three', 180]]);
+  const source = fanOut[0]!.start;
   for (const branch of fanOut) {
-    expect(branch.start.x).toBeCloseTo(325, 1);
-    expect(branch.start.y).toBeCloseTo(280, 1);
-    expect(branch.end.x).toBeCloseTo(targetXs.get(branch.label!)!, 1);
+    const offset = branchOffsets.get(branch.label!);
+    expect(offset).toBeDefined();
+    const targetX = source.x + offset!;
+    expect(branch.start.x).toBeCloseTo(source.x, 1);
+    expect(branch.start.y).toBeCloseTo(source.y, 1);
+    expect(branch.end.x).toBeCloseTo(targetX, 1);
+    expect(branch.end.y).toBeGreaterThan(source.y);
     expect(branch.terminalControl.x).toBeCloseTo(branch.end.x, 1);
     expect(branch.terminalControl.y).toBeLessThan(branch.end.y);
-    expect(branch.arrow.tip.x).toBeCloseTo(targetXs.get(branch.label!)!, 1);
+    expect(branch.arrow.tip.x).toBeCloseTo(targetX, 1);
     expect(branch.arrow.tip.y).toBeGreaterThan(branch.arrow.base.y);
   }
 });
@@ -847,12 +860,12 @@ test('runs the core static editing workflow across browsers @cross-browser', asy
   await page.getByRole('textbox', { name: '完整文本' }).fill(PASTED_DOCUMENT);
   await expect(page.locator('[data-diagram-item]')).toHaveCount(2);
   await page.locator('[data-diagram-item]').nth(1).click();
-  await expect(page.locator('[data-preview] svg')).toContainText('Second diagram');
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toContainText('Second diagram');
   await page.getByRole('textbox', { name: '当前图表' }).fill(
     'flowchart LR\n  Browser[Browser] --> Core[Core workflow]',
   );
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
-  await expect(page.locator('[data-preview] svg')).toContainText('Core workflow');
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toContainText('Core workflow');
   await page.getByRole('tab', { name: '完整文本' }).click();
   await expectEditorValue(page.getByRole('textbox', { name: '完整文本' }), /Core\[Core workflow\]/);
   expectPrivateRequests();
@@ -862,7 +875,7 @@ test('keeps labels, geometry, and scaling visible in real SVG output', async ({ 
   const expectPrivateRequests = monitorPrivacy(page);
   await page.goto('./');
 
-  const previewSvg = page.locator('[data-preview] svg');
+  const previewSvg = page.locator('[data-preview] > svg.xmermaid-diagram');
   await page.locator('[data-diagram-item]').nth(1).click();
   await expect(previewSvg).toBeVisible();
   await expect(previewSvg.locator('.node text')).toHaveCount(6);
@@ -982,7 +995,7 @@ test('keeps the last SVG but blocks stale export after a render error', async ({
   const expectPrivateRequests = monitorPrivacy(page);
 
   await page.goto('./');
-  const previewSvg = page.locator('[data-preview] svg');
+  const previewSvg = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(previewSvg).toBeVisible();
   const successfulMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
   await page.getByRole('tab', { name: '当前图表' }).click();
@@ -1001,7 +1014,7 @@ test('reports an invalid flowchart without replacing the last successful SVG', a
   const expectPrivateRequests = monitorPrivacy(page);
 
   await page.goto('./');
-  const previewSvg = page.locator('[data-preview] svg');
+  const previewSvg = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(previewSvg).toBeVisible();
   const successfulMarkup = await previewSvg.evaluate(svg => svg.outerHTML);
   await page.getByRole('tab', { name: '当前图表' }).click();
@@ -1066,10 +1079,10 @@ test('@cross-browser renders declared Sequence participants and actors without a
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
   await expect(page.getByRole('button', { name: '复制复现源码' })).toBeVisible();
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
-  await expect(page.locator('[data-preview] svg')).toContainText('A');
-  await expect(page.locator('[data-preview] svg')).toContainText('Payment service');
-  await expect(page.locator('[data-preview] svg')).toContainText('User');
-  await expect(page.locator('[data-preview] svg')).toContainText('Signed in');
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toContainText('A');
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toContainText('Payment service');
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toContainText('User');
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toContainText('Signed in');
 });
 
 test('@cross-browser renders Sequence activations, notes, and control blocks without an unsupported diagnostic', async ({ page }) => {
@@ -1078,7 +1091,7 @@ test('@cross-browser renders Sequence activations, notes, and control blocks wit
 
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
   await expect(page.locator('[data-diagnostics]')).not.toContainText('unsupported_syntax');
-  const preview = page.locator('[data-preview] svg');
+  const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview.locator('.sequence-lifeline')).toHaveCount(2);
   await expect(preview.locator('.sequence-activation')).toHaveCount(1);
   await expect(preview.locator('.sequence-note')).toHaveCount(1);
@@ -1093,7 +1106,7 @@ test('@cross-browser renders document-style sequence autonumber, RGB rect, and c
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
   await expect(page.locator('[data-diagnostics]')).not.toContainText('unsupported_syntax');
   await expect(page.locator('[data-diagnostics]')).not.toContainText('parse_error');
-  const preview = page.locator('[data-preview] svg');
+  const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview.locator('.sequence-message-number')).toHaveText('1');
   await expect(preview.locator('.sequence-rect')).toHaveAttribute('fill', 'rgb(255, 235, 235)');
   await expect(preview.locator('.sequence-message-cross')).toHaveCount(1);
@@ -1104,7 +1117,7 @@ test('@cross-browser fits native sequence participants and scoped control blocks
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\nsequenceDiagram\n  participant Client as Crane STK Stack Machine\n  participant API as API\n  participant Store as PostgreSQL Task Repository\n  participant Audit as Audit\n  Client->>Client: Publish a snapshot after every observed device state change\n  par Persist task state independently\n    API->>Store: Persist a command that must remain attributable to its physical task generation\n  and Append audit trail independently\n    API->>Audit: Record a committed result for the same command generation\n  end\n```');
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
 
-  const preview = page.locator('[data-preview] svg');
+  const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview.locator('.sequence-participant')).toHaveCount(4);
   await expect(preview.locator('.sequence-block')).toHaveCount(1);
   const geometry = await preview.evaluate(svg => {
@@ -1146,7 +1159,7 @@ test('keeps fitted SVG output vector-first and the canvas visually quiet', async
 
   const presentation = await page.locator('.app-shell').evaluate(shell => {
     const stage = shell.querySelector<HTMLElement>('[data-preview-stage]')!;
-    const svg = shell.querySelector<SVGSVGElement>('[data-preview] svg')!;
+    const svg = shell.querySelector<SVGSVGElement>('[data-preview] > svg.xmermaid-diagram')!;
     const minimap = shell.querySelector<HTMLElement>('[data-preview-minimap]')!;
     return {
       appFontSize: getComputedStyle(shell).fontSize,
@@ -1194,7 +1207,7 @@ test('@cross-browser renders the partial Entity Relationship subset and keeps it
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
   await expect(page.getByRole('button', { name: '复制复现源码' })).toBeVisible();
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
-  const preview = page.locator('[data-preview] svg');
+  const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview).toContainText('CUSTOMER');
   await expect(preview).toContainText('ORDER');
   await expect(preview).toContainText('places');
@@ -1208,7 +1221,7 @@ test('@cross-browser renders the partial Gantt subset and keeps its capability b
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
-  const preview = page.locator('[data-preview] svg');
+  const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview).toContainText('Build');
   await expect(preview).toContainText('Compile');
 });
@@ -1221,7 +1234,7 @@ test('@cross-browser renders partial Pie slices and keeps its capability boundar
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
-  const preview = page.locator('[data-preview] svg');
+  const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview).toContainText('Passed');
   await expect(preview).toContainText('Failed');
 });
@@ -1475,7 +1488,7 @@ test('@cross-browser renders partial User Journey tasks and keeps its capability
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
-  const preview = page.locator('[data-preview] svg');
+  const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview).toContainText('Explore');
   await expect(preview).toContainText('Pay securely');
 });
@@ -1488,7 +1501,7 @@ test('@cross-browser renders partial Timeline entries and keeps its capability b
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
-  await expect(page.locator('[data-preview] svg')).toContainText('Global launch');
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toContainText('Global launch');
 });
 
 test('@cross-browser renders partial Mindmap hierarchies and keeps its capability boundary visible', async ({ page }) => {
@@ -1499,7 +1512,7 @@ test('@cross-browser renders partial Mindmap hierarchies and keeps its capabilit
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
-  const preview = page.locator('[data-preview] svg');
+  const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview).toContainText('Root');
   await expect(preview).toContainText('Editor');
 });
@@ -1512,7 +1525,7 @@ test('@cross-browser renders partial Requirement blocks and semantic relationshi
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
-  const preview = page.locator('[data-preview] svg');
+  const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview).toContainText('Login');
   await expect(preview).toContainText('Validate credentials');
   await expect(preview).toContainText('satisfies');
@@ -1526,7 +1539,7 @@ test('@cross-browser renders partial GitGraph branches and merges', async ({ pag
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
-  const preview = page.locator('[data-preview] svg');
+  const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview).toContainText('ZERO');
   await expect(preview).toContainText('develop');
   await expect(preview).toContainText('RELEASE');
@@ -1540,7 +1553,7 @@ test('@cross-browser renders partial C4 system landscapes and relationships', as
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
-  const preview = page.locator('[data-preview] svg');
+  const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview).toContainText('Customer');
   await expect(preview).toContainText('Internet Banking');
   await expect(preview).toContainText('Sends mail');
@@ -1647,7 +1660,7 @@ test('uses the single-panel layout before the desktop grid would clip', async ({
 test('persists desktop pane proportions without persisting the canvas viewport', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('./');
-  await expect(page.locator('[data-preview] svg')).toBeVisible();
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toBeVisible();
   const workspace = page.locator('.workspace');
   const divider = page.getByRole('separator', { name: '调整图表列表宽度' });
   const before = await workspace.evaluate(element => getComputedStyle(element).getPropertyValue('--list-width'));
@@ -1723,7 +1736,7 @@ test('switches editor tabs with the keyboard', async ({ page }) => {
 test('zooms, fits, and pans the preview without rerendering the source', async ({ page }) => {
   await page.goto('./');
   const source = await readEditor(page.getByRole('textbox', { name: '完整文本' }));
-  const svgBefore = await page.locator('[data-preview] svg').evaluate(svg => svg.outerHTML);
+  const svgBefore = await page.locator('[data-preview] > svg.xmermaid-diagram').evaluate(svg => svg.outerHTML);
 
   await page.getByRole('button', { name: '放大预览' }).click();
   await expect(page.locator('[data-preview-stage]')).toHaveAttribute('data-viewport-mode', 'manual');
@@ -1734,7 +1747,7 @@ test('zooms, fits, and pans the preview without rerendering the source', async (
   await page.getByRole('button', { name: '适配预览' }).click();
 
   await expectEditorValue(page.getByRole('textbox', { name: '完整文本' }), source);
-  expect(await page.locator('[data-preview] svg').evaluate(svg => svg.outerHTML)).toBe(svgBefore);
+  expect(await page.locator('[data-preview] > svg.xmermaid-diagram').evaluate(svg => svg.outerHTML)).toBe(svgBefore);
 });
 
 test('restores local content and keeps canvas controls reachable', async ({ page }) => {
@@ -1743,7 +1756,7 @@ test('restores local content and keeps canvas controls reachable', async ({ page
   await page.reload();
   const documentText = 'flowchart TD\n  Local[Local cache] --> Canvas[Canvas]';
   await page.getByRole('textbox', { name: '完整文本' }).fill(documentText);
-  await expect(page.locator('[data-preview] svg')).toContainText('Local cache');
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toContainText('Local cache');
 
   await page.getByRole('button', { name: '收起图表列表' }).click();
   const restoreList = page.getByRole('button', { name: '展开图表列表' });
