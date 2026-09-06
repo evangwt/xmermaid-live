@@ -39,10 +39,10 @@ describe('GitHub Pages discovery resources', () => {
     expect(gitignore).toMatch(/^docs\/superpowers\/$/m);
     expect(gitignore).toMatch(/^vendor\/\*\.tgz$/m);
     expect(npmrc).toBe('registry=https://registry.npmjs.org/\nreplace-registry-host=always\n');
-    expect(packageSpec).toBe('0.1.10');
+    expect(packageSpec).toBe('0.2.0');
     expect(lockedPackages[''].resolved).toBeUndefined();
     expect(lockedPackages['node_modules/@evangwt/xmermaid'].resolved)
-      .toBe('https://registry.npmjs.org/@evangwt/xmermaid/-/xmermaid-0.1.10.tgz');
+      .toBe('https://registry.npmjs.org/@evangwt/xmermaid/-/xmermaid-0.2.0.tgz');
     expect(packageLock).not.toContain('registry.npmmirror.com');
     expect(packageLock).not.toContain('file:vendor');
   });
