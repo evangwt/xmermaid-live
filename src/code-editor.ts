@@ -28,12 +28,12 @@ export interface CodeEditor {
 
 const editorTheme = EditorView.theme({
   '&': { height: '100%', direction: 'ltr', color: 'var(--text)', backgroundColor: 'var(--surface-editor)' },
-  '.cm-scroller': { direction: 'ltr', overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: '13px', lineHeight: '1.72' },
+  '.cm-scroller': { direction: 'ltr', overflow: 'auto', fontFamily: 'var(--font-mono)', fontSize: '13px', lineHeight: '1.72' },
   '.cm-content': { minHeight: '100%', direction: 'ltr', padding: '16px', caretColor: 'var(--focus)' },
   '.cm-gutters': { direction: 'ltr', border: '0', color: 'var(--text-muted)', backgroundColor: 'var(--surface-editor)' },
   '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'color-mix(in srgb, var(--surface-raised) 62%, transparent)' },
   '&.cm-focused .cm-cursor': { borderLeftColor: 'var(--focus)' },
-  '&.cm-focused': { outline: '3px solid var(--focus)', outlineOffset: '-3px' },
+  '&.cm-focused': { outline: '2px solid var(--focus)', outlineOffset: '-2px' },
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--accent-soft)' },
 });
 

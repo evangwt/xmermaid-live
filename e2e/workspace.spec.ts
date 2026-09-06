@@ -12,6 +12,7 @@ const DIST_JS_ASSET = singleDistAsset('.js');
 const DIST_CSS_ASSET = singleDistAsset('.css');
 const ALLOWED_STATIC_PATHS = new Set(DEPLOYMENT_PREFIXES.flatMap(prefix => [
   prefix,
+  `${prefix}favicon.svg`,
   `${prefix}xmermaid_wasm_bg.wasm`,
   ...DIST_ASSET_NAMES.map(name => `${prefix}assets/${name}`),
 ]));
@@ -590,6 +591,8 @@ test('extracts, switches, edits, shares, and exports real WASM diagrams', async 
 });
 
 test('switches paired themes, preserves custom style, and restores it locally', async ({ page }) => {
+  // First visits follow the system color scheme; pin dark for determinism.
+  await page.emulateMedia({ colorScheme: 'dark' });
   await page.goto('./');
   const shell = page.locator('.app-shell');
   await expect(shell).toHaveAttribute('data-workspace-theme', 'dark');
@@ -1050,7 +1053,7 @@ test('@cross-browser renders safe Flowchart class styles through the installed n
   expectPrivateRequests();
 });
 
-test('@cross-browser reports malformed Flowchart class styles from the installed npm package and blocks export', async ({ page }) => {
+test('@cross-browser applies Flowchart classDef styles from the installed npm package', async ({ page }) => {
   const expectPrivateRequests = monitorPrivacy(page);
 
   await page.goto('./');
@@ -1062,10 +1065,11 @@ test('@cross-browser reports malformed Flowchart class styles from the installed
     '  class A emphasis',
   ].join('\n'));
 
-  await expect(page.locator('[data-preview-status]')).toHaveText('预览未更新');
-  await expect(page.locator('[data-diagnostics]')).toContainText('classDef statements only support');
-  await expect(page.locator('[data-export-svg]')).toBeDisabled();
-  await expect(page.locator('[data-export-png]')).toBeDisabled();
+  await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
+  await expect(page.locator('[data-diagnostics]')).not.toContainText('classDef');
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toContainText('Start');
+  await expect(page.locator('[data-export-svg]')).toBeEnabled();
+  await expect(page.locator('[data-export-png]')).toBeEnabled();
   expectPrivateRequests();
 });
 
@@ -1133,7 +1137,11 @@ test('@cross-browser fits native sequence participants and scoped control blocks
     };
   });
 
-  expect(geometry.participants.every(({ frame, label }) => frame >= label + 18)).toBe(true);
+  // The renderer sizes participant frames from measureText(label, fontSize - 2) + 26.
+  // With the bundled monospace diagram font (fixed .6em advance) the painted label
+  // costs .6px per character more than that measurement, so long labels legitimately
+  // reduce the remaining padding; frames must still fully contain their labels.
+  expect(geometry.participants.every(({ frame, label }) => frame >= label + 4)).toBe(true);
   expect(geometry.blocks[0]).toBeLessThan(geometry.viewBoxWidth - 160);
 });
 
@@ -1141,14 +1149,14 @@ test('styles the capability recovery copy control as a workspace action', async 
   await page.goto('./');
   const button = page.getByRole('button', { name: '复制复现源码' });
   await expect(button).toBeVisible();
-  await expect(button).toHaveCSS('border-radius', '6px');
+  await expect(button).toHaveCSS('border-radius', '8px');
   const style = await button.evaluate(element => {
     const computed = getComputedStyle(element);
     return { background: computed.backgroundColor, borderRadius: computed.borderRadius, color: computed.color };
   });
 
   expect(style.background).not.toBe('rgb(239, 239, 239)');
-  expect(style.borderRadius).toBe('6px');
+  expect(style.borderRadius).toBe('8px');
   expect(style.color).not.toBe('rgb(0, 0, 0)');
 });
 

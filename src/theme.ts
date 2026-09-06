@@ -25,11 +25,12 @@ export const DEFAULT_THEME_PREFERENCES: ThemePreferences = {
   overrides: {},
 };
 
-export const THEME_FONT_FAMILIES = [
+export const DIAGRAM_FONT_FAMILIES = [
   'sans-serif',
-  'Inter, ui-sans-serif, system-ui, sans-serif',
-  'ui-monospace, SFMono-Regular, Consolas, monospace',
+  '"JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
 ] as const;
+
+export const DIAGRAM_DEFAULT_FONT_FAMILY = DIAGRAM_FONT_FAMILIES[1];
 
 const ARROW_STYLES: readonly ArrowStyle[] = ['filled', 'triangle', 'open', 'circle', 'cross'];
 const CURVE_STYLES: readonly CurveStyle[] = ['bezier', 'step', 'straight'];
@@ -80,6 +81,7 @@ export function resolveDiagramTheme(preferences: ThemePreferences): RenderTheme 
   return {
     ...base,
     ...preferences.overrides,
+    fontFamily: preferences.overrides.fontFamily ?? DIAGRAM_DEFAULT_FONT_FAMILY,
     name: customized ? `${base.name}-custom` : base.name,
     colors: {
       ...base.colors,
@@ -126,7 +128,7 @@ function parseOverrides(value: unknown): DiagramStyleOverrides {
   if (inRange(value.arrowSize, 4, 32)) overrides.arrowSize = value.arrowSize;
   if (inRange(value.nodeBorderRadius, 0, 24)) overrides.nodeBorderRadius = value.nodeBorderRadius;
   if (inRange(value.fontSize, 10, 24)) overrides.fontSize = value.fontSize;
-  if (isOneOf(value.fontFamily, THEME_FONT_FAMILIES)) overrides.fontFamily = value.fontFamily;
+  if (isOneOf(value.fontFamily, DIAGRAM_FONT_FAMILIES)) overrides.fontFamily = value.fontFamily;
 
   if (isRecord(value.colors)) {
     const colors: Partial<ThemeColors> = {};

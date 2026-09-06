@@ -5,7 +5,7 @@ import { createWorkspaceDocumentForDiagram } from './document-model';
 import { resolveLocale, serializeLocale } from './i18n';
 import { parseLayoutPreferences, serializeLayoutPreferences } from './layout-preferences';
 import { SAMPLE_DOCUMENT } from './sample';
-import { parseThemePreferences, serializeThemePreferences } from './theme';
+import { parseThemePreferences, serializeThemePreferences, type ThemePreferences } from './theme';
 import { createWorkspaceCacheWriter, parseWorkspaceCache } from './workspace-cache';
 
 const LAYOUT_STORAGE_KEY = 'xmermaid-live.layout.v1';
@@ -33,7 +33,7 @@ const initialThemePreferences = savedThemePreferences
   ? parseThemePreferences(savedThemePreferences)
   : cachedWorkspace?.themePreferences
     ? parseThemePreferences(JSON.stringify(cachedWorkspace.themePreferences))
-    : parseThemePreferences(null);
+    : systemThemePreferences();
 const initialLocale = resolveLocale(
   safeRead(LOCALE_STORAGE_KEY),
   navigator.languages,
@@ -43,6 +43,9 @@ const workspaceCacheWriter = createWorkspaceCacheWriter({
   storage: safeStorage(),
   key: WORKSPACE_STORAGE_KEY,
 });
+// Keep the browser chrome tinted to match the workspace from the first paint.
+document.querySelector('meta[name="theme-color"]')
+  ?.setAttribute('content', initialThemePreferences.workspace === 'dark' ? '#0a0c12' : '#edf0f5');
 mountApp(root, {
   initialText,
   initialSelectedIndex: initialState.selectedIndex ?? 0,
@@ -69,6 +72,13 @@ function safeStorage(): Pick<Storage, 'setItem'> {
   } catch {
     return { setItem: () => { throw new Error('Storage unavailable'); } };
   }
+}
+
+// First-time visitors get the workbench flavor their system already speaks.
+function systemThemePreferences(): ThemePreferences {
+  const prefersDark = typeof window.matchMedia !== 'function'
+    || window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return { version: 1, workspace: prefersDark ? 'dark' : 'light', overrides: {} };
 }
 
 function safeRead(key: string): string | null {

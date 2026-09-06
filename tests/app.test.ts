@@ -928,10 +928,10 @@ describe('mountApp', () => {
   it('applies distinct semantic workbench themes without changing panel geometry', () => {
     mounted = mountApp(root(), { initialText: DOCUMENT, renderer });
     const shell = document.querySelector<HTMLElement>('.app-shell')!;
-    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#08090b');
+    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#0a0c12');
 
     document.querySelector<HTMLButtonElement>('[data-theme-option="light"]')!.click();
-    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#eceef0');
+    expect(getComputedStyle(shell).getPropertyValue('--surface-canvas').trim()).toBe('#edf0f5');
     expect(getComputedStyle(document.querySelector<HTMLElement>('.workspace')!).getPropertyValue('--list-width').trim()).toBe('168px');
   });
 });

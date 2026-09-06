@@ -45,7 +45,7 @@ import {
 } from './canvas-viewport';
 import {
   DEFAULT_THEME_PREFERENCES,
-  THEME_FONT_FAMILIES,
+  DIAGRAM_FONT_FAMILIES,
   resolveDiagramTheme,
   themeSignature,
   type DiagramStyleOverrides,
@@ -150,7 +150,7 @@ const SHELL = `
       <div class="workspace-divider" data-workspace-divider="editor" role="separator" aria-orientation="vertical" aria-label="调整编辑器与预览宽度" tabindex="0"></div>
       <section class="preview-panel" data-panel="preview" aria-label="实时预览">
         <div class="panel-heading"><h2>预览</h2><span data-preview-status></span><div class="preview-navigation" role="group"><button type="button" class="quiet-icon-button" data-preview-previous>${icon('chevron-left')}</button><span data-preview-position></span><button type="button" class="quiet-icon-button" data-preview-next>${icon('chevron-right')}</button></div></div>
-        <div class="preview-content-grid"><div class="preview-canvas" data-preview-canvas data-preview-priority="primary" aria-label="图表画布"><div class="preview-actions preview-canvas-controls" data-preview-controls role="group" aria-label="画布视图控制"><output data-preview-zoom-value>100%</output><button type="button" class="quiet-icon-button" data-preview-zoom="out" aria-label="缩小预览" title="缩小预览">${icon('minus')}</button><button type="button" class="quiet-icon-button" data-preview-fit aria-label="适配预览" title="适配预览">${icon('fit')}</button><button type="button" class="quiet-icon-button" data-preview-zoom="in" aria-label="放大预览" title="放大预览">${icon('plus')}</button><button type="button" class="quiet-icon-button" data-preview-fullscreen aria-label="全屏预览" title="全屏预览">${icon('fullscreen')}</button><button type="button" class="quiet-icon-button" data-preview-maximize aria-label="最大化预览" title="最大化预览">${icon('maximize-panel')}</button></div><div class="preview-stage" data-preview-stage data-viewport-mode="fit" data-preview></div><div class="preview-minimap" data-preview-minimap aria-hidden="true"></div></div><aside class="preview-inspector" data-style-desktop-host aria-label="图表样式"><div class="style-inspector-content" data-style-content><header class="style-inspector-header"><h2 id="style-title">图表样式</h2><button type="button" class="icon-button" data-style-close aria-label="关闭图表样式"><span class="style-close-desktop">×</span><span class="style-close-compact">完成</span></button></header><div class="style-drawer-body" data-style-body><fieldset><legend>主题</legend><div class="theme-switch theme-switch-drawer" role="group" aria-label="图表基础主题"><button type="button" data-theme-option="dark" aria-pressed="true">深色</button><button type="button" data-theme-option="light" aria-pressed="false">浅色</button></div></fieldset><fieldset><legend>颜色</legend><div class="color-controls"><label class="style-control"><span>画布</span><input type="color" data-style-color="background"></label><label class="style-control"><span>节点</span><input type="color" data-style-color="nodeFill"></label><label class="style-control"><span>节点描边</span><input type="color" data-style-color="nodeStroke"></label><label class="style-control"><span>连线</span><input type="color" data-style-color="edgeStroke"></label><label class="style-control"><span>箭头颜色</span><input type="color" data-style-color="arrowFill"></label></div><details data-style-advanced-colors><summary>更多颜色</summary><div class="color-controls"><label class="style-control"><span>节点文字</span><input type="color" data-style-color="nodeText"></label><label class="style-control"><span>连线标签</span><input type="color" data-style-color="edgeLabel"></label><label class="style-control"><span>子图</span><input type="color" data-style-color="subgraphFill"></label><label class="style-control"><span>子图描边</span><input type="color" data-style-color="subgraphStroke"></label></div></details></fieldset><fieldset><legend>几何</legend><div class="style-control style-control-stack" data-style-row="curveStyle"><span>曲线</span><div class="segmented-control" role="group" aria-label="曲线样式"><button type="button" data-style-option="bezier" aria-pressed="true">贝塞尔</button><button type="button" data-style-option="step" aria-pressed="false">折线</button><button type="button" data-style-option="straight" aria-pressed="false">直线</button></div></div><label class="style-control" data-style-row="arrowStyle"><span>箭头类型</span><select data-style-select="arrowStyle"><option value="filled">实心</option><option value="triangle">三角</option><option value="open">开放</option><option value="circle">圆形</option><option value="cross">交叉</option></select></label><label class="style-control range-control" data-style-row="edgeGap"><span>箭头与节点间距</span><output data-style-output="edgeGap"></output><input type="range" min="0" max="24" step="1" aria-label="箭头与节点间距" data-style-number="edgeGap"></label><label class="style-control range-control" data-style-row="arrowSize"><span>箭头大小</span><output data-style-output="arrowSize"></output><input type="range" min="4" max="32" step="1" aria-label="箭头大小" data-style-number="arrowSize"></label><label class="style-control range-control" data-style-row="nodeBorderRadius"><span>节点圆角</span><output data-style-output="nodeBorderRadius"></output><input type="range" min="0" max="24" step="1" aria-label="节点圆角" data-style-number="nodeBorderRadius"></label></fieldset><details data-style-advanced-text><summary>文字与字体</summary><label class="style-control" data-style-row="fontFamily"><span>字体</span><select data-style-select="fontFamily"><option value="sans-serif">系统字体</option><option value="Inter, ui-sans-serif, system-ui, sans-serif">界面字体</option><option value="ui-monospace, SFMono-Regular, Consolas, monospace">等宽字体</option></select></label><label class="style-control range-control" data-style-row="fontSize"><span>字号</span><output data-style-output="fontSize"></output><input type="range" min="10" max="24" step="1" aria-label="字号" data-style-number="fontSize"></label></details></div><footer class="style-drawer-footer" data-style-footer><button type="button" data-style-reset>重置图表样式</button></footer></div></aside></div>
+        <div class="preview-content-grid"><div class="preview-canvas" data-preview-canvas data-preview-priority="primary" aria-label="图表画布"><div class="preview-actions preview-canvas-controls" data-preview-controls role="group" aria-label="画布视图控制"><output data-preview-zoom-value>100%</output><button type="button" class="quiet-icon-button" data-preview-zoom="out" aria-label="缩小预览" title="缩小预览">${icon('minus')}</button><button type="button" class="quiet-icon-button" data-preview-fit aria-label="适配预览" title="适配预览">${icon('fit')}</button><button type="button" class="quiet-icon-button" data-preview-zoom="in" aria-label="放大预览" title="放大预览">${icon('plus')}</button><button type="button" class="quiet-icon-button" data-preview-fullscreen aria-label="全屏预览" title="全屏预览">${icon('fullscreen')}</button><button type="button" class="quiet-icon-button" data-preview-maximize aria-label="最大化预览" title="最大化预览">${icon('maximize-panel')}</button></div><div class="preview-stage" data-preview-stage data-viewport-mode="fit" data-preview></div><div class="preview-minimap" data-preview-minimap aria-hidden="true"></div></div><aside class="preview-inspector" data-style-desktop-host aria-label="图表样式"><div class="style-inspector-content" data-style-content><header class="style-inspector-header"><h2 id="style-title">图表样式</h2><button type="button" class="icon-button" data-style-close aria-label="关闭图表样式"><span class="style-close-desktop">×</span><span class="style-close-compact">完成</span></button></header><div class="style-drawer-body" data-style-body><fieldset><legend>主题</legend><div class="theme-switch theme-switch-drawer" role="group" aria-label="图表基础主题"><button type="button" data-theme-option="dark" aria-pressed="true">深色</button><button type="button" data-theme-option="light" aria-pressed="false">浅色</button></div></fieldset><fieldset><legend>颜色</legend><div class="color-controls"><label class="style-control"><span>画布</span><input type="color" data-style-color="background"></label><label class="style-control"><span>节点</span><input type="color" data-style-color="nodeFill"></label><label class="style-control"><span>节点描边</span><input type="color" data-style-color="nodeStroke"></label><label class="style-control"><span>连线</span><input type="color" data-style-color="edgeStroke"></label><label class="style-control"><span>箭头颜色</span><input type="color" data-style-color="arrowFill"></label></div><details data-style-advanced-colors><summary>更多颜色</summary><div class="color-controls"><label class="style-control"><span>节点文字</span><input type="color" data-style-color="nodeText"></label><label class="style-control"><span>连线标签</span><input type="color" data-style-color="edgeLabel"></label><label class="style-control"><span>子图</span><input type="color" data-style-color="subgraphFill"></label><label class="style-control"><span>子图描边</span><input type="color" data-style-color="subgraphStroke"></label></div></details></fieldset><fieldset><legend>几何</legend><div class="style-control style-control-stack" data-style-row="curveStyle"><span>曲线</span><div class="segmented-control" role="group" aria-label="曲线样式"><button type="button" data-style-option="bezier" aria-pressed="true">贝塞尔</button><button type="button" data-style-option="step" aria-pressed="false">折线</button><button type="button" data-style-option="straight" aria-pressed="false">直线</button></div></div><label class="style-control" data-style-row="arrowStyle"><span>箭头类型</span><select data-style-select="arrowStyle"><option value="filled">实心</option><option value="triangle">三角</option><option value="open">开放</option><option value="circle">圆形</option><option value="cross">交叉</option></select></label><label class="style-control range-control" data-style-row="edgeGap"><span>箭头与节点间距</span><output data-style-output="edgeGap"></output><input type="range" min="0" max="24" step="1" aria-label="箭头与节点间距" data-style-number="edgeGap"></label><label class="style-control range-control" data-style-row="arrowSize"><span>箭头大小</span><output data-style-output="arrowSize"></output><input type="range" min="4" max="32" step="1" aria-label="箭头大小" data-style-number="arrowSize"></label><label class="style-control range-control" data-style-row="nodeBorderRadius"><span>节点圆角</span><output data-style-output="nodeBorderRadius"></output><input type="range" min="0" max="24" step="1" aria-label="节点圆角" data-style-number="nodeBorderRadius"></label></fieldset><details data-style-advanced-text><summary>文字与字体</summary><label class="style-control" data-style-row="fontFamily"><span>字体</span><select data-style-select="fontFamily"><option value="sans-serif">系统字体</option><option value='"JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace'>等宽字体</option></select></label><label class="style-control range-control" data-style-row="fontSize"><span>字号</span><output data-style-output="fontSize"></output><input type="range" min="10" max="24" step="1" aria-label="字号" data-style-number="fontSize"></label></details></div><footer class="style-drawer-footer" data-style-footer><button type="button" data-style-reset>重置图表样式</button></footer></div></aside></div>
       </section>
     </div>
     <section class="diagnostics diagnostics-bar" data-diagnostics aria-live="polite" aria-atomic="true"></section>
@@ -227,11 +227,30 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   let layoutPreferences = options.initialLayoutPreferences ?? DEFAULT_LAYOUT_PREFERENCES;
   const viewportCache = new Map<string, CanvasViewport>(Object.entries(options.initialViewports ?? {}));
   const animationFrames = new Set<number>();
+  let statusClearTimer: number | null = null;
   let activeViewport: CanvasViewport = { mode: 'fit', scale: 1, offsetX: 0, offsetY: 0 };
   let resizeObserver: ResizeObserver | null = null;
   let panningPointerId: number | null = null;
   let panningPosition: { x: number; y: number } | null = null;
   shell.dataset.workspaceTheme = preferences.workspace;
+
+  // Keep the browser chrome tint aligned with the active workspace theme.
+  const syncBrowserChromeTheme = (): void => {
+    document.querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', preferences.workspace === 'dark' ? '#0a0c12' : '#edf0f5');
+  };
+  syncBrowserChromeTheme();
+
+  // Status text doubles as a transient toast on compact layouts, so stale
+  // messages must not linger over the workspace indefinitely.
+  const notifyStatus = (message: string): void => {
+    actionStatus.textContent = message;
+    if (statusClearTimer !== null) window.clearTimeout(statusClearTimer);
+    statusClearTimer = window.setTimeout(() => {
+      statusClearTimer = null;
+      if (actionStatus.textContent === message) actionStatus.textContent = '';
+    }, 3600);
+  };
 
   const runtime = new PreviewRuntime(
     options.renderer ?? createRenderSource(),
@@ -246,20 +265,20 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
 
   const shareCurrent = () => {
     if (state.text.length > MAX_SHARE_HASH_LENGTH) {
-      actionStatus.textContent = t('status.shareTooLong');
+      notifyStatus(t('status.shareTooLong'));
       return;
     }
     try {
       const current = selectedDiagram(state);
       const hash = encodeShareState(state.text, current?.id ?? null);
       if (hash.length > MAX_SHARE_HASH_LENGTH) {
-        actionStatus.textContent = t('status.shareTooLong');
+        notifyStatus(t('status.shareTooLong'));
         return;
       }
       window.location.hash = hash;
-      actionStatus.textContent = t('status.shareSuccess');
+      notifyStatus(t('status.shareSuccess'));
     } catch (error) {
-      actionStatus.textContent = t('status.shareFailed', { message: error instanceof Error ? error.message : String(error) });
+      notifyStatus(t('status.shareFailed', { message: error instanceof Error ? error.message : String(error) }));
     }
   };
   shareButton.addEventListener('click', shareCurrent);
@@ -427,7 +446,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     select.addEventListener('change', () => {
       if (select.dataset.styleSelect === 'arrowStyle') {
         updateStyleOverride('arrowStyle', select.value as ArrowStyle);
-      } else if (select.dataset.styleSelect === 'fontFamily' && THEME_FONT_FAMILIES.includes(select.value as typeof THEME_FONT_FAMILIES[number])) {
+      } else if (select.dataset.styleSelect === 'fontFamily' && DIAGRAM_FONT_FAMILIES.includes(select.value as typeof DIAGRAM_FONT_FAMILIES[number])) {
         updateStyleOverride('fontFamily', select.value);
       }
     });
@@ -489,9 +508,20 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   for (const button of root.querySelectorAll<HTMLButtonElement>('[data-mobile-target]')) {
     button.addEventListener('click', () => {
       shell.dataset.mobilePanel = button.dataset.mobileTarget ?? 'edit';
+      // The preview panel measures 0x0 while hidden, so a fit computed in that
+      // state clamps to the minimum scale; refit once the panel is visible.
+      if (shell.dataset.mobilePanel === 'preview') schedulePresentationFit();
       renderMobileNavigation();
     });
   }
+
+  // Overflow-menu actions close their menu on use, matching platform menus.
+  const mobileMoreMenu = required<HTMLDetailsElement>(root, '[data-mobile-more]');
+  mobileMoreMenu.addEventListener('click', event => {
+    if (event.target instanceof Element && event.target.closest('button, a')) {
+      mobileMoreMenu.removeAttribute('open');
+    }
+  });
 
   function renderDocument(): void {
     syncValue(documentInput, state.text);
@@ -658,9 +688,13 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
 
     diagnostics.replaceChildren();
     const current = selectedDiagram(state);
+    let hasRecovery = false;
     if (current) {
       const recovery = capabilityRecovery(current, t);
-      if (recovery) diagnostics.append(recovery);
+      if (recovery) {
+        diagnostics.append(recovery);
+        hasRecovery = true;
+      }
     }
     if (snapshot.status === 'error' && snapshot.message && snapshot.diagnostics.length === 0) {
       diagnostics.append(diagnosticItem('render_error', snapshot.message, null, current, t));
@@ -668,7 +702,9 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     for (const diagnostic of snapshot.diagnostics) {
       diagnostics.append(diagnosticItem(diagnostic.code, diagnostic.message, diagnostic.range, current, t));
     }
-    if (snapshot.status === 'ready' && snapshot.diagnostics.length === 0) {
+    // A capability notice already explains the state; "no diagnostics" next to
+    // it reads as contradictory noise.
+    if (snapshot.status === 'ready' && snapshot.diagnostics.length === 0 && !hasRecovery) {
       diagnostics.append(diagnosticItem('ok', t('diagnostic.none'), null, null, t));
     }
 
@@ -728,9 +764,9 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
         || themeSignature(effectiveTheme) !== exportThemeSignature
       ) return;
       saveBlob(blob, fileName);
-      actionStatus.textContent = t('status.exported', { format: format.toUpperCase() });
+      notifyStatus(t('status.exported', { format: format.toUpperCase() }));
     } catch (error) {
-      actionStatus.textContent = t('status.exportFailed', { message: error instanceof Error ? error.message : String(error) });
+      notifyStatus(t('status.exportFailed', { message: error instanceof Error ? error.message : String(error) }));
     }
   }
 
@@ -738,10 +774,10 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     const source = state.document.diagrams[index]?.source;
     if (!source) return;
     if (await copyText(source)) {
-      actionStatus.textContent = t('status.copySuccess');
+      notifyStatus(t('status.copySuccess'));
       return;
     }
-    actionStatus.textContent = t('status.copyFailed');
+    notifyStatus(t('status.copyFailed'));
   }
 
   renderStaticCopy();
@@ -753,6 +789,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   return {
     destroy() {
       resizeObserver?.disconnect();
+      if (statusClearTimer !== null) window.clearTimeout(statusClearTimer);
       window.removeEventListener('resize', handleWindowResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('keydown', closeDesktopStyleInspectorOnEscape);
@@ -819,8 +856,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     setText('[data-style-select="arrowStyle"] option[value="circle"]', 'arrow.circle');
     setText('[data-style-select="arrowStyle"] option[value="cross"]', 'arrow.cross');
     setText('[data-style-select="fontFamily"] option[value="sans-serif"]', 'font.system');
-    setText('[data-style-select="fontFamily"] option[value="Inter, ui-sans-serif, system-ui, sans-serif"]', 'font.ui');
-    setText('[data-style-select="fontFamily"] option[value="ui-monospace, SFMono-Regular, Consolas, monospace"]', 'font.mono');
+    setText("[data-style-select=\"fontFamily\"] option[value='\"JetBrains Mono\", ui-monospace, SFMono-Regular, Consolas, monospace']", 'font.mono');
     setText('[data-style-reset]', 'style.reset');
     setText('[data-mobile-target="list"] span', 'nav.diagrams');
     setText('[data-mobile-target="edit"] span', 'nav.edit');
@@ -917,6 +953,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     preferences = cloneThemePreferences(next);
     effectiveTheme = resolveDiagramTheme(preferences);
     shell.dataset.workspaceTheme = preferences.workspace;
+    syncBrowserChromeTheme();
     renderThemeControls();
     options.persistThemePreferences?.(cloneThemePreferences(preferences));
     runtime.request(selectedDiagram(state)?.source ?? null, effectiveTheme);
@@ -1092,7 +1129,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       await previewPanel.requestFullscreen();
     } catch {
       setPreviewMaximized(true);
-      actionStatus.textContent = t('status.fullscreenFallback');
+      notifyStatus(t('status.fullscreenFallback'));
     }
   }
 
