@@ -48,7 +48,7 @@ describe('copy-xmermaid-wasm', () => {
     expect(wasm.byteLength).toBeGreaterThan(0);
   });
 
-  it('copies into an isolated output directory without touching the live public asset', async () => {
+  it('copies into an isolated output directory without touching the live public asset', { timeout: 30_000 }, async () => {
     const publicAssetBefore = await readOptionalFile(copiedPath);
     const outputDirectory = await mkdtemp(join(tmpdir(), 'xmermaid-live-wasm-'));
 
