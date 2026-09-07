@@ -132,7 +132,9 @@ async function expectEditorValue(locator: Locator, expected: string | RegExp): P
 
 async function waitForSingleDiagramItem(page: Page): Promise<Locator> {
   const item = page.locator('[data-diagram-item]');
-  await expect(item).toHaveCount(1);
+  // Firefox on CI renders the first re-extraction slowly (bundled fonts plus
+  // a full sample-list swap); allow well beyond the 5s default.
+  await expect(item).toHaveCount(1, { timeout: 30_000 });
   return item;
 }
 
