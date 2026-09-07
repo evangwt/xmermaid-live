@@ -39,7 +39,7 @@ npx playwright install chromium firefox webkit
 npm run dev
 ```
 
-粘贴包含一个或多个 `mermaid` / `xmermaid` 围栏代码块的 Markdown。只由一个已识别原始 Mermaid 图表组成的文档也受支持。xmermaid 通过自身支持契约发现 Mermaid 11.16.0 图表目录（30 个有文档的图表族）；当前部分原生渲染支持的标识为：`flowchart`、`swimlanes`、`sequence`、`class`、`state`、`er`、`user-journey`、`gantt`、`pie`、`quadrant`、`requirement`、`gitgraph`、`c4`、`mindmap`、`timeline`、`zenuml`、`sankey`、`xychart`、`block`、`packet`、`kanban`、`architecture`、`radar`、`event-modeling`、`treemap`、`venn`、`ishikawa`、`wardley`、`cynefin` 和 `treeview`。计划中的图表族仍可选择，并会提供诊断与可复制的复现源码。
+粘贴包含一个或多个 `mermaid` / `xmermaid` 围栏代码块的 Markdown。只由一个已识别原始 Mermaid 图表组成的文档也受支持。xmermaid 通过自身支持契约发现 Mermaid 11.16.0 图表目录（30 个有文档的图表族）；User Journey、Gantt 与 Pie 当前为完全支持；当前部分原生渲染支持的标识为：`flowchart`、`swimlanes`、`sequence`、`class`、`state`、`er`、`quadrant`、`requirement`、`gitgraph`、`c4`、`mindmap`、`timeline`、`zenuml`、`sankey`、`xychart`、`block`、`packet`、`kanban`、`architecture`、`radar`、`event-modeling`、`treemap`、`venn`、`ishikawa`、`wardley`、`cynefin` 和 `treeview`。计划中的图表族仍可选择，并会提供诊断与可复制的复现源码。
 
 完整文档编辑导致图表列表变化时，选择状态会通过未变化的开头/结尾图表映射；当一段内容中存在重复或复杂重排时，会尽力保持相对序号。
 
@@ -85,7 +85,7 @@ npm run build
 
 ## xmermaid 依赖
 
-构建从 `registry.npmjs.org` 安装精确版本 `@evangwt/xmermaid@0.2.0`。npm 发布包携带关联公开 [xmermaid 仓库](https://github.com/evangwt/xmermaid)的签名 provenance，因此本仓库不再重复提交包归档。
+构建从 `registry.npmjs.org` 安装精确版本 `@evangwt/xmermaid@0.3.0`。npm 发布包携带关联公开 [xmermaid 仓库](https://github.com/evangwt/xmermaid)的签名 provenance，因此本仓库不再重复提交包归档。
 
 ## 开源许可
 

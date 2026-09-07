@@ -19,10 +19,11 @@ xmermaid 版本：0.2.0
 xmermaid live is a browser-based Mermaid diagram workspace. It extracts multiple Mermaid diagrams from Markdown, lets users edit the current diagram, previews SVG output, and exports SVG or PNG. Diagram support follows xmermaid runtime diagnostics. The application does not upload user documents; they remain in browser memory and share-link URL hashes.
 
 Renderer: @evangwt/xmermaid
-xmermaid version: 0.2.0
+xmermaid version: 0.3.0
 Renderer source: https://github.com/evangwt/xmermaid
 Live source: https://github.com/evangwt/xmermaid-live
-Current partial native renderers: flowchart, swimlanes, sequence, class, state, er, user-journey, gantt, pie, quadrant, requirement, gitgraph, c4, mindmap, timeline, zenuml, sankey, xychart, block, packet, kanban, architecture, radar, event-modeling, treemap, venn, ishikawa, wardley, cynefin, treeview.
+User Journey, Gantt, and Pie are fully supported today.
+Current partial native renderers: flowchart, swimlanes, sequence, class, state, er, quadrant, requirement, gitgraph, c4, mindmap, timeline, zenuml, sankey, xychart, block, packet, kanban, architecture, radar, event-modeling, treemap, venn, ishikawa, wardley, cynefin, treeview.
 
 ## Verification
 

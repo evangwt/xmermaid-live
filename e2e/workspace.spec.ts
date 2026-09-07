@@ -1223,26 +1223,26 @@ test('@cross-browser renders the partial Entity Relationship subset and keeps it
   await expect(preview).toContainText('places');
 });
 
-test('@cross-browser renders the partial Gantt subset and keeps its capability boundary visible', async ({ page }) => {
+test('@cross-browser renders Gantt tasks as fully supported', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\ngantt\n  section Build\n  Compile : 2026-07-28, 2d\n```');
   const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'gantt');
-  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
-  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
+  await expect(item).toHaveAttribute('data-diagram-status', 'supported');
+  await expect(page.locator('[data-capability-recovery]')).toHaveCount(0);
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
   const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview).toContainText('Build');
   await expect(preview).toContainText('Compile');
 });
 
-test('@cross-browser renders partial Pie slices and keeps its capability boundary visible', async ({ page }) => {
+test('@cross-browser renders Pie slices as fully supported', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\npie title Deployment\n  "Passed" : 80\n  "Failed" : 20\n```');
   const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'pie');
-  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
-  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
+  await expect(item).toHaveAttribute('data-diagram-status', 'supported');
+  await expect(page.locator('[data-capability-recovery]')).toHaveCount(0);
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
   const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview).toContainText('Passed');
@@ -1358,7 +1358,9 @@ test('@cross-browser renders native partial Radar axes and curve polygons', asyn
   await expect(item).toHaveAttribute('data-diagram-type', 'radar');
   await expect(item).toHaveAttribute('data-diagram-status', 'partial');
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
-  await expect(preview.locator('.radar-grid')).toHaveCount(4);
+  // The default graticule draws five circle rings behind the web.
+  await expect(preview.locator('.radar-grid')).toHaveCount(5);
+  await expect(preview.locator('circle.radar-grid')).toHaveCount(5);
   await expect(preview.locator('.radar-axis')).toHaveCount(4);
   await expect(preview.locator('.radar-curve')).toHaveCount(2);
   await expect(preview.locator('.radar-axis-label').first()).toContainText('Food Quality');
@@ -1490,13 +1492,13 @@ test('@cross-browser renders native partial Cynefin domains, items, and transiti
   await expect(preview).toContainText('Pattern identified');
 });
 
-test('@cross-browser renders partial User Journey tasks and keeps its capability boundary visible', async ({ page }) => {
+test('@cross-browser renders User Journey tasks as fully supported', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('textbox', { name: '完整文本' }).fill('```mermaid\njourney\n  title Checkout\n  section Explore\n    Find product: 5: Buyer\n  section Purchase\n    Pay securely: 4: Buyer, Store\n```');
   const item = await waitForSingleDiagramItem(page);
   await expect(item).toHaveAttribute('data-diagram-type', 'user-journey');
-  await expect(item).toHaveAttribute('data-diagram-status', 'partial');
-  await expect(page.locator('[data-capability-recovery]')).toContainText('部分支持');
+  await expect(item).toHaveAttribute('data-diagram-status', 'supported');
+  await expect(page.locator('[data-capability-recovery]')).toHaveCount(0);
   await expect(page.locator('[data-preview-status]')).toHaveText('已更新');
   const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
   await expect(preview).toContainText('Explore');

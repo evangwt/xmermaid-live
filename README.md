@@ -39,7 +39,7 @@ npx playwright install chromium firefox webkit
 npm run dev
 ```
 
-Paste Markdown containing one or more fenced `mermaid` / `xmermaid` blocks. A document that consists only of one recognized raw Mermaid diagram is also supported. xmermaid discovers the Mermaid 11.16.0 catalog (30 documented families) through its own support contract. The current partial native renderers are `flowchart`, `swimlanes`, `sequence`, `class`, `state`, `er`, `user-journey`, `gantt`, `pie`, `quadrant`, `requirement`, `gitgraph`, `c4`, `mindmap`, `timeline`, `zenuml`, `sankey`, `xychart`, `block`, `packet`, `kanban`, `architecture`, `radar`, `event-modeling`, `treemap`, `venn`, `ishikawa`, `wardley`, `cynefin`, and `treeview`; unsupported syntax remains explicit through diagnostics and a copyable reproduction source.
+Paste Markdown containing one or more fenced `mermaid` / `xmermaid` blocks. A document that consists only of one recognized raw Mermaid diagram is also supported. xmermaid discovers the Mermaid 11.16.0 catalog (30 documented families) through its own support contract. User Journey, Gantt, and Pie are fully supported today. The current partial native renderers are `flowchart`, `swimlanes`, `sequence`, `class`, `state`, `er`, `quadrant`, `requirement`, `gitgraph`, `c4`, `mindmap`, `timeline`, `zenuml`, `sankey`, `xychart`, `block`, `packet`, `kanban`, `architecture`, `radar`, `event-modeling`, `treemap`, `venn`, `ishikawa`, `wardley`, `cynefin`, and `treeview`; unsupported syntax remains explicit through diagnostics and a copyable reproduction source.
 
 When the complete-document editor changes the diagram list, selection is mapped through unchanged leading/trailing diagrams and otherwise follows a source only when that source is unique on both sides. Ambiguous duplicate or complex-reorder regions keep the same relative ordinal as a best-effort fallback.
 
@@ -85,7 +85,7 @@ Share links are limited to an encoded URL hash of 50,000 characters. Longer docu
 
 ## xmermaid dependency
 
-Builds install the exact `@evangwt/xmermaid@0.2.0` release from `registry.npmjs.org`. The npm release carries signed provenance linked to the public [xmermaid repository](https://github.com/evangwt/xmermaid), so this repository does not commit duplicate package archives.
+Builds install the exact `@evangwt/xmermaid@0.3.0` release from `registry.npmjs.org`. The npm release carries signed provenance linked to the public [xmermaid repository](https://github.com/evangwt/xmermaid), so this repository does not commit duplicate package archives.
 
 ## License
 
