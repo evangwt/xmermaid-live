@@ -14,3 +14,9 @@ docs/superpowers/
 
 # Local package artifacts
 vendor/*.tgz
+
+# Local matrix artifacts
+output/
+
+# Local tool state
+.omo/
