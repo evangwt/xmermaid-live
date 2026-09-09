@@ -61,6 +61,15 @@ The verification suite includes unit tests, type checking, a production build, r
 
 The automated browser capacity contract covers synchronous extraction and list update for 1,000 Mermaid diagrams in under 1.5 seconds on the verification environment. This is not an incremental parser: larger documents can still block the browser main thread while extraction and WASM rendering run.
 
+### Diagram matrix
+
+```bash
+npm run serve:test &
+npm run test:diagrams -- --browser=chromium --runs=2
+```
+
+Renders one complex example for each of the 30 diagram families in the running app (`scripts/diagram-matrix/examples.mjs`), screenshots the preview, and writes per-attempt reports to `output/diagram-matrix/<browser>/`. Supports `--browser=chromium|firefox|webkit`. The same matrix runs in CI through `.github/workflows/diagram-matrix.yml`; `scripts/diagram-matrix/REPORT.md` documents the current renderer support boundary and known upstream defects with reproduction probes.
+
 ## Static deployment
 
 ### GitHub Pages

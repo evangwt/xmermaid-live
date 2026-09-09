@@ -11,6 +11,7 @@
     "review:snapshot": "node scripts/review-snapshot.mjs",
     "serve:test": "node scripts/serve-dist.mjs",
     "test": "vitest run",
+    "test:diagrams": "node scripts/diagram-matrix/render-matrix.mjs",
     "test:e2e": "npm run build && playwright test",
     "verify": "npm run typecheck && npm test && npm run build && playwright test",
     "typecheck": "tsc --noEmit"
