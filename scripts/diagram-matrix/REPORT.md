@@ -2,6 +2,8 @@
 
 日期：2026-09-09 ~ 09-10 · 环境：本仓库生产构建 + `npm run serve:test` + Playwright（Chromium / Firefox / WebKit），应用默认主题。
 
+> **0.4.0 复核（2026-09-21）**：渲染器已升级到 `@evangwt/xmermaid@0.4.0`，并已用同一套 `examples.mjs` 重跑矩阵；结论见文末「0.4.0 复核」一节。以下正文是 0.3.0 时点的审计记录。
+
 ## 迭代历史
 
 - **迭代 1（测试与识别）**：为 `DIAGRAM_CATALOG` 全部 30 个图表家族编写复杂示例，通过真实应用 UI 渲染并逐一目检 → 30/30 出图，识别出 12 类渲染缺陷。
@@ -90,3 +92,24 @@
 - `scripts/diagram-matrix/probes/` — 16 个探针脚本，每条上游缺陷结论的最小复现
 - `scripts/diagram-matrix/REPORT.md` — 本报告（受版本控制）
 - `output/diagram-matrix/<browser>/run<k>/` — 截图与 SVG 产物；`output/diagram-matrix/<browser>/report-run<k>.json` — 结构化报告（含每次 attempt 的状态与诊断）
+
+## 0.4.0 复核（2026-09-21）
+
+渲染器升级到 `@evangwt/xmermaid@0.4.0`（新增 AI 风格语法支持：HTML 标签、Markdown 字符串标签、边 ID、classDef 外观属性等）后，用同一套 `examples.mjs` 重跑矩阵，确认升级未引入家族级回归。本节的矩阵与质量门结论取代上文的对应项；上文其余内容仍是 0.3.0 时点的审计记录。
+
+- **渲染矩阵**：chromium ×3、firefox ×1、webkit ×1 → 每轮 30/30 家族出图、类型识别正确，无失败家族（`ALL GREEN`）。
+- **variant 分布**：complex 29 / fallback 1（仅 zenuml），三引擎一致。
+- **跨引擎 C4**：三引擎 viewBox 均为 `0 0 958.55 356`，离群坐标元素计数 0 —— 与 0.3.0 修复后的取值一致，`src/preview-svg.ts` 的防御逻辑仍保留。
+- **缺陷清单变化**：
+  - ✅ **第 5 条（mindmap `::icon()`）已修复**：带 `::icon(fa fa-bolt)`、`::icon(fa fa-chart-line)` 的复杂示例一次渲染成功（attempts=1，无重试），不再退回去掉图标的版本。
+  - ❌ **第 8 条（zenuml 声明与块语法）仍存在**：复杂示例两次尝试均为「预览未更新」，仍只能渲染回退版。
+  - 未复测：第 1、6 条（architecture 裸 `<-->`、flowchart 按索引 `linkStyle`）—— 本套示例仍沿用 0.3.0 时确认可用的写法（junction + 带端口箭头、`linkStyle default`）。第 3、4、7、9 条属文字重叠/裁切类观感缺陷，矩阵只断言「出图 + 坐标合法 + 类型识别」，需人工查看截图。
+- **质量门**：单元测试 207/207、`npm run typecheck` ✅、`npm run build` ✅、e2e 151/151（`npx playwright test --workers=1`，chromium / firefox / webkit 三项目）。
+
+复现（先 `npm run build`，再让 `npm run serve:test` 在 4173 端口提供服务）：
+
+```bash
+node scripts/diagram-matrix/render-matrix.mjs --browser=chromium --runs=3
+node scripts/diagram-matrix/render-matrix.mjs --browser=firefox  --runs=1
+node scripts/diagram-matrix/render-matrix.mjs --browser=webkit   --runs=1
+```

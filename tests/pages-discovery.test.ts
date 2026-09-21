@@ -22,7 +22,7 @@ const deliveryFiles = [
 ];
 
 describe('GitHub Pages discovery resources', () => {
-  it('keeps local artifacts private and installs xmermaid from the official registry', async () => {
+  it('keeps local artifacts private and pins xmermaid to a single exact version', async () => {
     const [gitignore, npmrc, projectPackage, packageLock] = await Promise.all([
       readFile(resolve(process.cwd(), '.gitignore'), 'utf8'),
       readFile(resolve(process.cwd(), '.npmrc'), 'utf8'),
@@ -39,12 +39,32 @@ describe('GitHub Pages discovery resources', () => {
     expect(gitignore).toMatch(/^docs\/superpowers\/$/m);
     expect(gitignore).toMatch(/^vendor\/\*\.tgz$/m);
     expect(npmrc).toBe('registry=https://registry.npmjs.org/\nreplace-registry-host=always\n');
-    expect(packageSpec).toBe('0.3.0');
+    const installed = JSON.parse(await readFile(
+      resolve(process.cwd(), 'node_modules/@evangwt/xmermaid/package.json'),
+      'utf8',
+    )) as { version: string };
+    const version = installed.version;
+    const vendorSpec = `file:vendor/evangwt-xmermaid-${version}.tgz`;
+    // Release state pins the registry version; development ahead of an
+    // `npm publish` may pin the vendored tgz of the same version.
+    const isRegistrySpec = packageSpec === version;
+    const isVendorSpec = packageSpec === vendorSpec;
+    expect(isRegistrySpec || isVendorSpec,
+      `dependency spec ${packageSpec} must equal ${version} or ${vendorSpec}`).toBe(true);
     expect(lockedPackages[''].resolved).toBeUndefined();
-    expect(lockedPackages['node_modules/@evangwt/xmermaid'].resolved)
-      .toBe('https://registry.npmjs.org/@evangwt/xmermaid/-/xmermaid-0.3.0.tgz');
+    const locked = lockedPackages['node_modules/@evangwt/xmermaid'].resolved;
+    if (isRegistrySpec) {
+      expect(locked).toBe(`https://registry.npmjs.org/@evangwt/xmermaid/-/xmermaid-${version}.tgz`);
+    } else {
+      expect(locked).toBe(vendorSpec);
+    }
     expect(packageLock).not.toContain('registry.npmmirror.com');
-    expect(packageLock).not.toContain('file:vendor');
+    // No file: dependencies other than the version-matched vendor artifact.
+    const fileSpecs = [...packageLock.matchAll(/"(file:[^"]+)"/g)].map(match => match[1]!);
+    expect(fileSpecs.every(spec => spec === vendorSpec),
+      `every file: dependency must be ${vendorSpec}, got ${JSON.stringify(fileSpecs)}`)
+      .toBe(true);
+    expect(fileSpecs.length > 0).toBe(isVendorSpec);
   });
 
   it('exposes the complete UI locale catalog and startup language preferences', async () => {
