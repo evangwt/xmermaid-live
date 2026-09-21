@@ -456,4 +456,12 @@ swimlane-beta LR
   fix --> answer
   answer --> receive
 ~~~
+
+## Without fences
+
+Bare diagram statements in prose are recognized too - no code fence required.
+
+flowchart TD
+  Paste[Paste anything] --> Recognize[Diagram recognized]
+  Recognize --> Preview[Live preview]
 `.replaceAll('~~~', '\`\`\`');

@@ -1,9 +1,8 @@
-import {
-  extractDiagrams,
-  replaceDiagramSource,
-  type DiagramBlock,
-  type DiagramDocument,
+import type {
+  DiagramBlock,
+  DiagramDocument,
 } from '@evangwt/xmermaid/editor';
+import { extractDiagrams, replaceDiagramSource } from './diagram-extract';
 
 export interface WorkspaceDocument {
   text: string;

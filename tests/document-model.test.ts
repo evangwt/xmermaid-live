@@ -52,16 +52,26 @@ describe('WorkspaceDocument', () => {
     });
   });
 
-  it('does not guess an unfenced diagram inside prose', () => {
+  it('extracts an unfenced diagram embedded in prose', () => {
     const state = createWorkspaceDocument('Explanation\nflowchart TD\n  A --> B\nMore prose');
-    expect(state.document.diagrams).toHaveLength(0);
-    expect(state.selectedIndex).toBeNull();
+    expect(state.document.diagrams).toHaveLength(1);
+    expect(selectedDiagram(state)?.source).toBe('flowchart TD\n  A --> B');
+    expect(selectedDiagram(state)?.origin).toBe('raw-mermaid-block');
   });
 
-  it('does not extract an unclosed Mermaid fence', () => {
+  it('extracts an unclosed Mermaid fence', () => {
     const state = createWorkspaceDocument('```mermaid\nflowchart TD\n  A --> B');
-    expect(state.document.diagrams).toHaveLength(0);
-    expect(state.selectedIndex).toBeNull();
+    expect(state.document.diagrams).toHaveLength(1);
+    expect(selectedDiagram(state)?.origin).toBe('markdown-fence');
+  });
+
+  it('keeps unfenced diagrams extractable while their source is edited', () => {
+    const state = createWorkspaceDocument('Explanation\nflowchart TD\n  A --> B\nMore prose');
+    const next = replaceSelectedDiagramSource(state, 'flowchart LR\n  X --> Y');
+
+    expect(next.text).toBe('Explanation\nflowchart LR\n  X --> Y\nMore prose');
+    expect(selectedDiagram(next)?.source).toBe('flowchart LR\n  X --> Y');
+    expect(selectedDiagram(next)?.origin).toBe('raw-mermaid-block');
   });
 
   it('switches diagrams without copying their source into document state', () => {

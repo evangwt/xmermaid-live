@@ -20,7 +20,7 @@
 | Capability | Details |
 | --- | --- |
 | Browser-first | Runs as a static site with no backend or document upload. |
-| Multi-diagram workflow | Extract, select, edit, and preview Mermaid or xmermaid fences from one document. |
+| Multi-diagram workflow | Extract, select, edit, and preview every Mermaid diagram in one document, fenced or bare. |
 | Honest support feedback | Shows the renderer's production support boundary and copyable diagnostics. |
 | Portable output | Share safe URL-hash links or export SVG without uploading user content. |
 
@@ -39,7 +39,7 @@ npx playwright install chromium firefox webkit
 npm run dev
 ```
 
-Paste Markdown containing one or more fenced `mermaid` / `xmermaid` blocks. A document that consists only of one recognized raw Mermaid diagram is also supported. xmermaid discovers the Mermaid 11.16.0 catalog (30 documented families) through its own support contract. User Journey, Gantt, and Pie are fully supported today. The current partial native renderers are `flowchart`, `swimlanes`, `sequence`, `class`, `state`, `er`, `quadrant`, `requirement`, `gitgraph`, `c4`, `mindmap`, `timeline`, `zenuml`, `sankey`, `xychart`, `block`, `packet`, `kanban`, `architecture`, `radar`, `event-modeling`, `treemap`, `venn`, `ishikawa`, `wardley`, `cynefin`, and `treeview`; unsupported syntax remains explicit through diagnostics and a copyable reproduction source.
+Paste Mermaid code with or without fences: fenced `mermaid` / `xmermaid` blocks (including unclosed or decorated variants) and bare diagram statements embedded in prose are all recognized. xmermaid discovers the Mermaid 11.16.0 catalog (30 documented families) through its own support contract. User Journey, Gantt, and Pie are fully supported today. The current partial native renderers are `flowchart`, `swimlanes`, `sequence`, `class`, `state`, `er`, `quadrant`, `requirement`, `gitgraph`, `c4`, `mindmap`, `timeline`, `zenuml`, `sankey`, `xychart`, `block`, `packet`, `kanban`, `architecture`, `radar`, `event-modeling`, `treemap`, `venn`, `ishikawa`, `wardley`, `cynefin`, and `treeview`; unsupported syntax remains explicit through diagnostics and a copyable reproduction source.
 
 When the complete-document editor changes the diagram list, selection is mapped through unchanged leading/trailing diagrams and otherwise follows a source only when that source is unique on both sides. Ambiguous duplicate or complex-reorder regions keep the same relative ordinal as a best-effort fallback.
 
@@ -94,7 +94,7 @@ Share links are limited to an encoded URL hash of 50,000 characters. Longer docu
 
 ## xmermaid dependency
 
-Builds install the exact `@evangwt/xmermaid@0.3.0` release from `registry.npmjs.org`. The npm release carries signed provenance linked to the public [xmermaid repository](https://github.com/evangwt/xmermaid), so this repository does not commit duplicate package archives.
+Builds pin an exact `@evangwt/xmermaid` version. Released builds install `@evangwt/xmermaid@0.4.0` from `registry.npmjs.org`. The npm release carries signed provenance linked to the public [xmermaid repository](https://github.com/evangwt/xmermaid), so this repository does not commit duplicate package archives. While a version is still being developed ahead of its `npm publish`, `package.json` may instead pin the vendored `vendor/evangwt-xmermaid-<version>.tgz` archive of that same version; `vendor/*.tgz` is gitignored, so those archives never reach the repository.
 
 ## License
 

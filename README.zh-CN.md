@@ -20,7 +20,7 @@
 | 能力 | 说明 |
 | --- | --- |
 | 纯浏览器运行 | 静态站点，无后端、无文档上传。 |
-| 多图表工作流 | 从一份文档中提取、选择、编辑并预览多个 Mermaid 或 xmermaid 代码块。 |
+| 多图表工作流 | 从一份文档中提取、选择、编辑并预览全部 Mermaid 图表，围栏代码块与裸图表均可。 |
 | 明确兼容性反馈 | 展示渲染器实际支持边界及可复制的诊断信息。 |
 | 可携带输出 | 使用安全的 URL hash 分享，或导出 SVG，不上传用户内容。 |
 
@@ -39,7 +39,7 @@ npx playwright install chromium firefox webkit
 npm run dev
 ```
 
-粘贴包含一个或多个 `mermaid` / `xmermaid` 围栏代码块的 Markdown。只由一个已识别原始 Mermaid 图表组成的文档也受支持。xmermaid 通过自身支持契约发现 Mermaid 11.16.0 图表目录（30 个有文档的图表族）；User Journey、Gantt 与 Pie 当前为完全支持；当前部分原生渲染支持的标识为：`flowchart`、`swimlanes`、`sequence`、`class`、`state`、`er`、`quadrant`、`requirement`、`gitgraph`、`c4`、`mindmap`、`timeline`、`zenuml`、`sankey`、`xychart`、`block`、`packet`、`kanban`、`architecture`、`radar`、`event-modeling`、`treemap`、`venn`、`ishikawa`、`wardley`、`cynefin` 和 `treeview`。计划中的图表族仍可选择，并会提供诊断与可复制的复现源码。
+粘贴 Mermaid 代码即可识别，无需依赖围栏：完整的 `mermaid` / `xmermaid` 代码块（含未闭合等变体）与夹在散文中的裸图表语句均受支持。xmermaid 通过自身支持契约发现 Mermaid 11.16.0 图表目录（30 个有文档的图表族）。User Journey、Gantt 与 Pie 当前为完全支持；当前部分原生渲染支持的标识为：`flowchart`、`swimlanes`、`sequence`、`class`、`state`、`er`、`quadrant`、`requirement`、`gitgraph`、`c4`、`mindmap`、`timeline`、`zenuml`、`sankey`、`xychart`、`block`、`packet`、`kanban`、`architecture`、`radar`、`event-modeling`、`treemap`、`venn`、`ishikawa`、`wardley`、`cynefin` 和 `treeview`。计划中的图表族仍可选择，并会提供诊断与可复制的复现源码。
 
 完整文档编辑导致图表列表变化时，选择状态会通过未变化的开头/结尾图表映射；当一段内容中存在重复或复杂重排时，会尽力保持相对序号。
 
@@ -85,7 +85,7 @@ npm run build
 
 ## xmermaid 依赖
 
-构建从 `registry.npmjs.org` 安装精确版本 `@evangwt/xmermaid@0.3.0`。npm 发布包携带关联公开 [xmermaid 仓库](https://github.com/evangwt/xmermaid)的签名 provenance，因此本仓库不再重复提交包归档。
+构建固定 `@evangwt/xmermaid` 的精确版本。已发布的构建从 `registry.npmjs.org` 安装 `@evangwt/xmermaid@0.4.0`。npm 发布包携带关联公开 [xmermaid 仓库](https://github.com/evangwt/xmermaid)的签名 provenance，因此本仓库不再重复提交包归档。当某个版本尚未 `npm publish`、仍处于开发阶段时，`package.json` 可能改为固定同一版本的本地归档 `vendor/evangwt-xmermaid-<version>.tgz`；`vendor/*.tgz` 已被 gitignore，这些归档不会进入仓库。
 
 ## 开源许可
 

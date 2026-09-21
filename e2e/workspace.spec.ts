@@ -425,7 +425,8 @@ test('renders every built-in default example from a clean workspace', async ({ p
   await page.goto('./');
 
   const items = page.locator('[data-diagram-item]');
-  await expect(items).toHaveCount(DEFAULT_DIAGRAM_TYPES.length + 1);
+  // One extra flowchart over the type list, plus the bare fenceless example.
+  await expect(items).toHaveCount(DEFAULT_DIAGRAM_TYPES.length + 2);
   expect((await items.evaluateAll(buttons => [...new Set(buttons.map(button => button.dataset.diagramType))].sort()))).toEqual(DEFAULT_DIAGRAM_TYPES);
 
   const preview = page.locator('[data-preview] > svg.xmermaid-diagram');

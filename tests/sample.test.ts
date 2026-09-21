@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeSupport, getSupportMatrix, type DiagramType } from '@evangwt/xmermaid';
-import { extractDiagrams } from '@evangwt/xmermaid/editor';
+import { extractDiagrams } from '../src/diagram-extract';
 import { SAMPLE_DOCUMENT } from '../src/sample';
 
 const CAPABILITY_MARKERS: Record<DiagramType, readonly RegExp[]> = {
@@ -46,8 +46,17 @@ describe('SAMPLE_DOCUMENT', () => {
 
     expect(document.diagnostics).toEqual([]);
     expect([...new Set(document.diagrams.map(diagram => diagram.diagramType))].sort()).toEqual(expectedTypes);
-    expect(document.diagrams).toHaveLength(expectedTypes.length + 1);
+    expect(document.diagrams).toHaveLength(expectedTypes.length + 2);
     expect(document.diagrams.every(diagram => analyzeSupport(diagram.source).unsupportedFeatures.length === 0)).toBe(true);
+  });
+
+  it('demonstrates that bare diagrams without fences are recognized', () => {
+    const document = extractDiagrams(SAMPLE_DOCUMENT);
+    const bare = document.diagrams.filter(diagram => diagram.origin === 'raw-mermaid-block');
+
+    expect(bare).toHaveLength(1);
+    expect(bare[0]!.diagramType).toBe('flowchart');
+    expect(bare[0]!.source).toMatch(/Paste\[Paste anything\] --> Recognize/);
   });
 
   it('opens with a complex top-down fan-out flowchart', () => {

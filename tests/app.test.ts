@@ -173,6 +173,16 @@ describe('mountApp', () => {
     expect(document.querySelectorAll('[data-diagram-item]')).toHaveLength(2);
   });
 
+  it('shows an unfenced diagram pasted between prose lines', () => {
+    mounted = mountApp(root(), { initialText: 'plain notes', renderer });
+    const input = document.querySelector<HTMLTextAreaElement>('[data-document-input]')!;
+    input.value = 'Here is the diagram:\nflowchart TD\n  A --> B\nHope it helps.';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(document.querySelectorAll('[data-diagram-item]')).toHaveLength(1);
+    expect(document.querySelector('[data-diagram-item]')!.textContent).toContain('flowchart');
+  });
+
   it('keeps partial diagrams visible with a capability recovery action', () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
