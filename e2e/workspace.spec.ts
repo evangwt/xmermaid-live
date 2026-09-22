@@ -425,8 +425,9 @@ test('renders every built-in default example from a clean workspace', async ({ p
   await page.goto('./');
 
   const items = page.locator('[data-diagram-item]');
-  // One extra flowchart over the type list, plus the bare fenceless example.
-  await expect(items).toHaveCount(DEFAULT_DIAGRAM_TYPES.length + 2);
+  // Two extra flowcharts over the type list (AI-style showcase + pipeline),
+  // plus the bare fenceless example.
+  await expect(items).toHaveCount(DEFAULT_DIAGRAM_TYPES.length + 3);
   expect((await items.evaluateAll(buttons => [...new Set(buttons.map(button => button.dataset.diagramType))].sort()))).toEqual(DEFAULT_DIAGRAM_TYPES);
 
   const preview = page.locator('[data-preview] > svg.xmermaid-diagram');
@@ -882,7 +883,7 @@ test('keeps labels, geometry, and scaling visible in real SVG output', async ({ 
   await page.goto('./');
 
   const previewSvg = page.locator('[data-preview] > svg.xmermaid-diagram');
-  await page.locator('[data-diagram-item]').nth(1).click();
+  await page.locator('[data-diagram-item]').nth(2).click();
   await expect(previewSvg).toBeVisible();
   await expect(previewSvg.locator('.node text')).toHaveCount(6);
   await expect(previewSvg.locator('.node text')).toHaveText([

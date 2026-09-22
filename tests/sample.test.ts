@@ -46,7 +46,7 @@ describe('SAMPLE_DOCUMENT', () => {
 
     expect(document.diagnostics).toEqual([]);
     expect([...new Set(document.diagrams.map(diagram => diagram.diagramType))].sort()).toEqual(expectedTypes);
-    expect(document.diagrams).toHaveLength(expectedTypes.length + 2);
+    expect(document.diagrams).toHaveLength(expectedTypes.length + 3);
     expect(document.diagrams.every(diagram => analyzeSupport(diagram.source).unsupportedFeatures.length === 0)).toBe(true);
   });
 
@@ -72,7 +72,20 @@ describe('SAMPLE_DOCUMENT', () => {
   it('keeps a left-to-right flowchart alongside the top-down stress case', () => {
     const diagrams = extractDiagrams(SAMPLE_DOCUMENT).diagrams;
 
-    expect(diagrams[1]?.source).toMatch(/flowchart LR/);
+    expect(diagrams[2]?.source).toMatch(/flowchart LR/);
+  });
+
+  it('showcases the AI-written syntax the renderer supports', () => {
+    const source = extractDiagrams(SAMPLE_DOCUMENT).diagrams
+      .find(diagram => diagram.source.includes('e1@-->'))?.source ?? '';
+
+    expect(source).toMatch(/<br\/>/);
+    expect(source).toMatch(/<b>Mermaid text<\/b>/);
+    expect(source).toMatch(/e1@-->/);
+    expect(source).toMatch(/\|"yes, <br\/>labels included"\|/);
+    expect(source).toMatch(/`[^`]*file an issue[^`]*`/);
+    expect(source).toMatch(/font-size:14px/);
+    expect(source).toMatch(/class Ship good/);
   });
 
   it('uses each diagram type to demonstrate its supported scene structure', () => {

@@ -13,6 +13,26 @@ flowchart TD
   Phone --> Compare
   Car --> Compare
   Compare --> Checkout[Checkout]
+  classDef cart fill:#fffbeb,stroke:#d69e2e,color:#744210
+  class Shopping,Compare cart
+~~~
+
+## Flowchart: the syntax AI writes
+
+HTML labels, line breaks, Markdown strings, edge IDs, quoted labels, and classDef cosmetics — paste AI output and it renders.
+
+~~~mermaid
+flowchart TD
+  Start(["User asks an AI<br/>for an architecture"]) --> Answer["AI replies with<br/><b>Mermaid text</b>"]
+  Answer --> Paste[Paste into xmermaid]
+  Paste e1@--> Check{Renders?}
+  Check -->|"yes, <br/>labels included"| Ship["fa:fa-rocket Ship it"]
+  Check -->|no| Report["\`**file an issue** with the source\`"]
+  User & Paste --> Share[Share the URL hash]
+  classDef accent fill:#eef7ff,stroke:#2b6cb0,color:#1a365d,font-size:14px
+  classDef good fill:#f0fff4,stroke:#38a169,color:#22543d
+  class Start,Answer accent
+  class Ship good
 ~~~
 
 ## Flowchart: left-to-right pipeline
@@ -59,6 +79,10 @@ classDiagram
   Account <|-- Customer
   Order --> Customer
   Animal <|-- Duck
+  classDef domain fill:#eef7ff,stroke:#2b6cb0,color:#1a365d
+  classDef value fill:#fffbeb,stroke:#d69e2e,color:#744210
+  class Customer,Order domain
+  class Account value
 ~~~
 
 ## State
