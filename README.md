@@ -7,7 +7,9 @@
 [![xmermaid npm](https://img.shields.io/npm/v/%40evangwt%2Fxmermaid?label=%40evangwt%2Fxmermaid&logo=npm)](https://www.npmjs.com/package/@evangwt/xmermaid)
 [![License: MIT](https://img.shields.io/badge/license-MIT-0b7a53.svg)](LICENSE)
 
-**A private, browser-native Mermaid workbench powered by [@evangwt/xmermaid](https://www.npmjs.com/package/@evangwt/xmermaid).** Paste Markdown, extract multiple diagrams, edit their source, inspect compatibility diagnostics, preview native SVG, and export or share the result - with no server-side document upload.
+**Paste your AI chat log, get every diagram.** The workbench for the [@evangwt/xmermaid](https://www.npmjs.com/package/@evangwt/xmermaid) Rust/WASM renderer — no account, no server, no upload.
+
+![The xmermaid Live workbench extracting two flowcharts from one Markdown document](https://raw.githubusercontent.com/evangwt/xmermaid-live/main/docs/assets/hero-workbench.png)
 
 <p>
   <a href="https://evangwt.github.io/xmermaid-live/"><strong>Open the live editor</strong></a>
@@ -15,23 +17,32 @@
   <a href="https://github.com/evangwt/xmermaid"><strong>Explore the renderer</strong></a>
 </p>
 
-## Why xmermaid Live
+## Why xmermaid Live?
 
-| Capability | Details |
-| --- | --- |
-| Browser-first | Runs as a static site with no backend or document upload. |
-| Multi-diagram workflow | Extract, select, edit, and preview every Mermaid diagram in one document, fenced or bare. |
-| Honest support feedback | Shows the renderer's production support boundary and copyable diagnostics. |
-| Portable output | Share safe URL-hash links or export SVG without uploading user content. |
+- **Every diagram, not just one** — fenced, unclosed, or bare in prose; extracted in one pass (1,000 diagrams in under 1.5s on the verification environment)
+- **AI-syntax friendly** — the same sanitization as the renderer: HTML labels, Markdown strings, cosmetic `classDef` all render
+- **Honest, per diagram** — real support status, copyable diagnostics, reproduction source
+- **Private by architecture** — a static site; the workspace stays in your browser
+- **Portable output** — SVG/PNG export, share links via URL hash (up to 50,000 characters)
 
-> **Privacy:** xmermaid Live is a client-side application. Diagram source stays in the browser: the workspace is cached in local storage and can optionally be encoded in the URL hash. It is never uploaded to this project or a server. Clear the site's browser data to remove the local cache.
+> **Privacy:** client-side only. Diagram source is cached in local storage and optionally encoded in the URL hash — never uploaded to this project or any server. Clear the site's browser data to remove the cache.
 
-## Requirements
+## The renderer behind it
 
-- Node.js 22 or newer
-- Chrome/Chromium, Firefox, and WebKit for end-to-end verification
+A thin static shell over [`@evangwt/xmermaid`](https://github.com/evangwt/xmermaid): a Rust/WASM renderer whose machine-readable matrix covers the Mermaid 11.16.0 catalog (30 documented families). User Journey, Gantt, and Pie are fully supported; the rest render documented subsets.
+
+Full contract: [renderer README](https://github.com/evangwt/xmermaid#what-renders-today).
+
+## The workbench
+
+- **Three panes, your layout** — draggable separators, keyboard fine-tuning, layout saved locally
+- **Local preview controls** — zoom 25%–400%, fit, fullscreen; zoom/pan never enter share links
+- **Compact screens** — bottom navigation on mobile; share/export in More
+- **Honest visual editing** — AST-backed pipeline validates through parse and render before touching your source; class-styled sources stay read-only
 
 ## Develop
+
+- Node.js 22+; Chrome/Chromium, Firefox, and WebKit for verification
 
 ```bash
 npm install
@@ -39,17 +50,7 @@ npx playwright install chromium firefox webkit
 npm run dev
 ```
 
-Paste Mermaid code with or without fences: fenced `mermaid` / `xmermaid` blocks (including unclosed or decorated variants) and bare diagram statements embedded in prose are all recognized. xmermaid discovers the Mermaid 11.16.0 catalog (30 documented families) through its own support contract. User Journey, Gantt, and Pie are fully supported today. The current partial native renderers are `flowchart`, `swimlanes`, `sequence`, `class`, `state`, `er`, `quadrant`, `requirement`, `gitgraph`, `c4`, `mindmap`, `timeline`, `zenuml`, `sankey`, `xychart`, `block`, `packet`, `kanban`, `architecture`, `radar`, `event-modeling`, `treemap`, `venn`, `ishikawa`, `wardley`, `cynefin`, and `treeview`; unsupported syntax remains explicit through diagnostics and a copyable reproduction source.
-
-When the complete-document editor changes the diagram list, selection is mapped through unchanged leading/trailing diagrams and otherwise follows a source only when that source is unique on both sides. Ambiguous duplicate or complex-reorder regions keep the same relative ordinal as a best-effort fallback.
-
-## Workbench controls
-
-On desktop, drag either separator to resize the diagram list, editor, and preview; use keyboard arrows on a focused separator for precise movement, `Shift` for larger steps, and double-click to restore defaults. The list can be collapsed without losing the current diagram.
-
-Preview controls change only the local view: zoom ranges from 25% to 400%, Fit preview restores a fitted view, and fullscreen falls back to an in-app maximized preview when the browser blocks fullscreen. Pane layout is saved locally; preview zoom and pan reset on refresh and are never placed in share links.
-
-On compact layouts, the diagram, editor, and preview panels move to the bottom navigation. Share and export live in More, and diagram styles open in a full-height sheet that returns to the previous panel when closed.
+Builds pin an exact `@evangwt/xmermaid` version — from `registry.npmjs.org` for released builds, or the gitignored `vendor/evangwt-xmermaid-<version>.tgz` while a version is ahead of its `npm publish`.
 
 ## Verify
 
@@ -57,9 +58,9 @@ On compact layouts, the diagram, editor, and preview panels move to the bottom n
 npm run verify
 ```
 
-The verification suite includes unit tests, type checking, a production build, real WASM, and browser checks. All scenarios run in Chrome/Chromium; the core editing workflow and root/subpath deployment smoke also run in Firefox and WebKit.
+Unit tests, type checking, production build, real WASM, and browser checks. All scenarios run in Chrome/Chromium; the core editing workflow and deployment smoke also run in Firefox and WebKit.
 
-The automated browser capacity contract covers synchronous extraction and list update for 1,000 Mermaid diagrams in under 1.5 seconds on the verification environment. This is not an incremental parser: larger documents can still block the browser main thread while extraction and WASM rendering run.
+The capacity contract covers synchronous extraction and list update for 1,000 Mermaid diagrams in under 1.5 seconds on the verification environment. This is not an incremental parser — larger documents can still block the main thread.
 
 ### Diagram matrix
 
@@ -68,34 +69,26 @@ npm run serve:test &
 npm run test:diagrams -- --browser=chromium --runs=2
 ```
 
-Renders one complex example for each of the 30 diagram families in the running app (`scripts/diagram-matrix/examples.mjs`), screenshots the preview, and writes per-attempt reports to `output/diagram-matrix/<browser>/`. Supports `--browser=chromium|firefox|webkit`. The same matrix runs in CI through `.github/workflows/diagram-matrix.yml`; `scripts/diagram-matrix/REPORT.md` documents the current renderer support boundary and known upstream defects with reproduction probes.
+Renders one complex example per diagram family (`scripts/diagram-matrix/examples.mjs`) and screenshots the preview; reports land in `output/diagram-matrix/<browser>/`. Also runs in CI (`.github/workflows/diagram-matrix.yml`).
 
-## Static deployment
+`scripts/diagram-matrix/REPORT.md` documents the support boundary and known upstream defects.
 
-### GitHub Pages
+## Deploy
 
-The public site is <https://evangwt.github.io/xmermaid-live/>. The repository workflow `.github/workflows/deploy-pages.yml` builds and deploys every push to `main`; it can also be run manually from the Actions tab.
+**GitHub Pages** — <https://evangwt.github.io/xmermaid-live/>. `.github/workflows/deploy-pages.yml` deploys every push to `main`. Before the first deploy, set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**.
 
-Before the first deployment, open **Settings → Pages** in GitHub and set **Build and deployment → Source** to **GitHub Actions**.
-
-### Search and AI discovery
-
-The static homepage provides Chinese and English metadata, truthful SoftwareApplication structured data, a sitemap, crawler rules, and `llms.txt`. These documents describe the browser-only Mermaid editor, its runtime support boundary, and the fact that it does not upload user documents.
+**Any static host:**
 
 ```bash
 npm run build
 ```
 
-Deploy the generated `dist/` directory to any static host. Assets use relative URLs, so the same output works at a domain root or beneath a path such as `/xmermaid-live/`. No server API, Node process, or Rust toolchain is required after the build.
+`dist/` uses relative URLs — deploy it at a domain root or under a path like `/xmermaid-live/`. No server API, Node process, or Rust toolchain needed after the build.
 
-User documents remain in browser memory, local storage, and optional URL hash state. The application does not upload document text. Clear the site's browser data to remove the local cache.
+Share links are capped at a 50,000-character URL hash; longer documents stay editable and exportable but never enter the address bar.
 
-Share links are limited to an encoded URL hash of 50,000 characters. Longer documents remain editable and exportable, but the app refuses to put them in the address bar because browser and host URL limits vary.
-
-## xmermaid dependency
-
-Builds pin an exact `@evangwt/xmermaid` version. Released builds install `@evangwt/xmermaid@0.4.0` from `registry.npmjs.org`. The npm release carries signed provenance linked to the public [xmermaid repository](https://github.com/evangwt/xmermaid), so this repository does not commit duplicate package archives. While a version is still being developed ahead of its `npm publish`, `package.json` may instead pin the vendored `vendor/evangwt-xmermaid-<version>.tgz` archive of that same version; `vendor/*.tgz` is gitignored, so those archives never reach the repository.
+**Search and AI discovery** — the homepage ships Chinese/English metadata, truthful SoftwareApplication structured data, a sitemap, crawler rules, and `llms.txt`.
 
 ## License
 
-MIT. See [LICENSE](LICENSE) for the full text.
+MIT. See [LICENSE](LICENSE).

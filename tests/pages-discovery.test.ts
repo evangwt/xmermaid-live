@@ -128,33 +128,59 @@ describe('GitHub Pages discovery resources', () => {
     expect(llms).toContain(`Live source: ${liveRepository}`);
   });
 
-  it('keeps static partial-renderer claims aligned with the runtime support matrix', async () => {
+  it('keeps static support claims aligned with the runtime support matrix', async () => {
     const [html, llms, readme, chineseReadme] = await Promise.all([
       readFile(indexPath, 'utf8'),
       readFile(llmsPath, 'utf8'),
       readFile(readmePath, 'utf8'),
       readFile(chineseReadmePath, 'utf8'),
     ]);
-    const partialDiagrams = getSupportMatrix().entries
+    const matrix = getSupportMatrix().entries;
+    const partialDiagrams = matrix
       .filter(entry => entry.status === 'partial')
       .map(entry => entry.diagramType);
-    const plannedDiagrams = getSupportMatrix().entries
+    const plannedDiagrams = matrix
       .filter(entry => entry.status === 'planned')
       .map(entry => entry.diagramType);
-    const claims = [
+    const fullySupportedDiagrams = matrix
+      .filter(entry => entry.status === 'supported')
+      .map(entry => entry.diagramType);
+
+    // The site pages enumerate every partial family verbatim.
+    const enumerations = [
       html.match(/Current partial native renderers:[^<]+/)?.[0] ?? '',
       llms.match(/^Current partial native renderers:.+$/m)?.[0] ?? '',
-      readme.match(/The current partial native renderers are[^\n]+/)?.[0] ?? '',
-      chineseReadme.match(/当前部分原生渲染支持的标识为[^\n]+/)?.[0] ?? '',
     ].map(claim => claim.toLowerCase());
 
-    for (const claim of claims) {
+    for (const claim of enumerations) {
       expect(claim).not.toBe('');
       for (const diagramType of partialDiagrams) {
         expect(claim, `partial-renderer claim is missing ${diagramType}`).toContain(diagramType);
       }
       for (const diagramType of plannedDiagrams) {
         expect(claim, `partial-renderer claim incorrectly includes planned ${diagramType}`)
+          .not.toContain(diagramType);
+      }
+    }
+
+    // The READMEs delegate the full enumeration to the renderer and name the
+    // fully-supported families in prose instead.
+    const readmeClaims = [
+      readme.match(/[^\n]*are fully supported[^\n]*/)?.[0] ?? '',
+      chineseReadme.match(/[^\n]*完全支持[^\n]*/)?.[0] ?? '',
+    ].map(claim => claim.toLowerCase());
+
+    for (const claim of readmeClaims) {
+      expect(claim).not.toBe('');
+      for (const diagramType of fullySupportedDiagrams) {
+        const label = diagramType.replace(/-/g, ' ');
+        expect(
+          claim.includes(diagramType) || claim.includes(label),
+          `fully-supported claim is missing ${diagramType}`,
+        ).toBe(true);
+      }
+      for (const diagramType of plannedDiagrams) {
+        expect(claim, `support claim incorrectly includes planned ${diagramType}`)
           .not.toContain(diagramType);
       }
     }
@@ -207,5 +233,5 @@ it('builds and deploys the canonical artifact with official Pages actions and do
   expect(readme).toContain(canonicalUrl);
   expect(readme).toContain('Settings → Pages');
   expect(readme).toContain('GitHub Actions');
-  expect(readme).toContain('does not upload user documents');
+  expect(readme).toContain('never uploaded to this project or any server');
 });
