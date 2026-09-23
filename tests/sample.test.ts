@@ -4,36 +4,36 @@ import { extractDiagrams } from '../src/diagram-extract';
 import { SAMPLE_DOCUMENT } from '../src/sample';
 
 const CAPABILITY_MARKERS: Record<DiagramType, readonly RegExp[]> = {
-  flowchart: [/Decision -->\|Laptop\| Laptop/, /Compare --> Checkout/],
-  sequence: [/participant Payments/, /alt Payment approved/, /Note right of Gateway/],
-  class: [/class Account/, /Account <\|-- Customer/, /Order --> Customer/],
-  state: [/Reviewing --> Approved/, /Published --> Archived/],
-  er: [/ORDER \|\|--o\{ ORDER_LINE/, /PRODUCT \|\|--o\{ ORDER_LINE/],
-  'user-journey': [/section Explore/, /section Purchase/, /section Retain/],
-  gantt: [/section Discovery/, /section Delivery/, /Review :/],
-  pie: [/"Passed" : 62/, /"Blocked" : 8/],
-  quadrant: [/Campaign A:/, /Campaign B:/, /Campaign C:/, /Campaign D:/],
-  requirement: [/requirement Login/, /functionalRequirement Authenticate/, /functionalRequirement RecoverAccount/],
-  gitgraph: [/branch develop/, /branch release/, /merge develop/],
-  c4: [/Person\(customer/, /System_Ext\(email/, /Rel\(banking, email/],
-  mindmap: [/Editor/, /Preview/, /Export/],
-  timeline: [/2024 : First release/, /2026 : Enterprise rollout/],
-  zenuml: [/Alice->Bob: Authenticate/, /Bob->Payments: Charge/, /Payments-->Bob: Receipt/],
-  sankey: [/Source,Qualified,36/, /Qualified,Won,18/, /Qualified,Nurture,18/],
-  xychart: [/x-axis \[Q1, Q2, Q3, Q4\]/, /bar \[20, 40, 55, 70\]/],
-  block: [/columns 4/, /Browser --> Editor/, /Renderer --> Export/],
-  packet: [/Source Port/, /Payload/, /Data \(variable length\)/],
-  kanban: [/backlog\[Backlog\]/, /doing\[In progress\]/, /done\[Done\]/],
-  architecture: [/service web\(server\)\[Web\]/, /service worker\(server\)\[Worker\]/, /web:R --> L:api/],
-  radar: [/axis food/, /curve a/, /curve c/],
-  'event-modeling': [/CartUI/, /CartSummary/, /PlaceOrder/],
-  treemap: [/"Platform"/, /"Editor": 28/, /"Renderer": 36/],
-  venn: [/set Frontend/, /set Backend/, /set Platform/],
-  ishikawa: [/Process/, /Equipment/, /Environment/],
-  wardley: [/component Storefront/, /component Payment/, /Storefront -> Checkout/],
-  cynefin: [/"Investigate root cause"/, /"Run a standard procedure"/, /"Stabilize immediately"/],
-  treeview: [/Desktop/, /Mobile/, /Command palette/],
-  swimlanes: [/subgraph Customer/, /subgraph Support/, /subgraph Engineering/],
+  flowchart: [/Found\{How many diagrams\?\}/, /Preview\["Live SVG preview"\]/],
+  sequence: [/autonumber/, /Click Share/, /Note right of Hash/],
+  class: [/class Workspace/, /Workspace o-- Document/, /Diagram --> Preview/],
+  state: [/Pasted --> Extracted/, /Previewing --> Exported/, /note right of Previewing/],
+  er: [/WORKSPACE \|\|--o\{ DOCUMENT/, /DIAGRAM \|\|--o\{ DIAGRAM_VERSION/, /string family/],
+  'user-journey': [/section Discover/, /section Paste/, /section Ship/],
+  gantt: [/section Shipped/, /:done, 2026-09-14, 4d/, /:milestone, 2026-10-02, 0d/],
+  pie: [/"SVG file" : 46/, /"Copy source" : 8/],
+  quadrant: [/HTML labels:/, /Edge IDs:/, /PDF export:/],
+  requirement: [/requirement LocalOnly/, /functionalRequirement HashShare/, /LocalOnly - contains -> HashShare/],
+  gitgraph: [/branch workbench/, /branch ai-syntax/, /merge ai-syntax id: "v0.4.0"/],
+  c4: [/Person\(visitor/, /System_Ext\(registry/, /Rel\(workbench, registry/],
+  mindmap: [/::icon\(fa fa-code\)/, /Visual flowchart edits/, /Share hash/],
+  timeline: [/0\.2 : Compact workbench/, /0\.4 : AI-syntax support/],
+  zenuml: [/Browser->Parser/, /Layout-->Parser/, /Parser-->Browser/],
+  sankey: [/AI chat,Flowchart,42/, /Flowchart,Rendered,52/],
+  xychart: [/x-axis \[100, 250, 500, 1000\]/, /bar \[48, 121, 266, 610\]/],
+  block: [/columns 3/, /State\["Document state"\]:3/, /List --> Editor/],
+  packet: [/Format version/, /Checksum/, /Compressed source/],
+  kanban: [/done\[Shipped\]/, /doing\[In progress\]/, /ticket: XM-240/],
+  architecture: [/service pages\(server\)\[GitHub Pages\]/, /service registry\(database\)\[npm registry\]/, /workbench:R --> L:pages/],
+  radar: [/axis aisyntax/, /curve xm/, /curve mj/],
+  'event-modeling': [/PasteSurface/, /DiagramList/, /SelectDiagram/],
+  treemap: [/"SDK"/, /"WASM module": 1327/, /"Extractor": 64/],
+  venn: [/set Mermaid/, /set AI/, /set Native/],
+  ishikawa: [/Blank preview/, /Unterminated label/, /Missing wasm asset/],
+  wardley: [/component Editor/, /component Renderer/, /Extractor -> Renderer/],
+  cynefin: [/"Fix the quoted label"/, /"Redraw by hand right now"/, /"Unknown family entirely"/],
+  treeview: [/Paste or type/, /Support matrix/, /Security policy/],
+  swimlanes: [/subgraph You/, /subgraph Maintainers/, /fix --> verify/],
 };
 
 describe('SAMPLE_DOCUMENT', () => {
@@ -56,20 +56,20 @@ describe('SAMPLE_DOCUMENT', () => {
 
     expect(bare).toHaveLength(1);
     expect(bare[0]!.diagramType).toBe('flowchart');
-    expect(bare[0]!.source).toMatch(/Paste\[Paste anything\] --> Recognize/);
+    expect(bare[0]!.source).toMatch(/Bare\[Bare in prose\] --> Recognized/);
   });
 
-  it('opens with a complex top-down fan-out flowchart', () => {
+  it('opens with the paste-flow fan-out flowchart', () => {
     const [firstDiagram] = extractDiagrams(SAMPLE_DOCUMENT).diagrams;
 
     expect(firstDiagram?.diagramType).toBe('flowchart');
     expect(firstDiagram?.source).toMatch(/flowchart TD/);
-    expect(firstDiagram?.source).toMatch(/Decision -->\|Laptop\| Laptop/);
-    expect(firstDiagram?.source).toMatch(/Decision -->\|iPhone\| Phone/);
-    expect(firstDiagram?.source).toMatch(/Decision -->\|Car\| Car/);
+    expect(firstDiagram?.source).toMatch(/Found\{How many diagrams\?\}/);
+    expect(firstDiagram?.source).toMatch(/\|one\| Solo/);
+    expect(firstDiagram?.source).toMatch(/Preview\["Live SVG preview"\]/);
   });
 
-  it('keeps a left-to-right flowchart alongside the top-down stress case', () => {
+  it('keeps the left-to-right pipeline as the third diagram', () => {
     const diagrams = extractDiagrams(SAMPLE_DOCUMENT).diagrams;
 
     expect(diagrams[2]?.source).toMatch(/flowchart LR/);

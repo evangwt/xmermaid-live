@@ -885,13 +885,14 @@ test('keeps labels, geometry, and scaling visible in real SVG output', async ({ 
   const previewSvg = page.locator('[data-preview] > svg.xmermaid-diagram');
   await page.locator('[data-diagram-item]').nth(2).click();
   await expect(previewSvg).toBeVisible();
-  await expect(previewSvg.locator('.node text')).toHaveCount(6);
+  await expect(previewSvg.locator('.node text')).toHaveCount(7);
   await expect(previewSvg.locator('.node text')).toHaveText([
-    'Document',
-    'Parse document',
-    'Diagram list',
-    'Editor',
-    'WASM',
+    'Source',
+    'Lexer',
+    'Parser',
+    'Diagram AST',
+    'Layout',
+    'WASM layout',
     'SVG preview',
   ]);
 
