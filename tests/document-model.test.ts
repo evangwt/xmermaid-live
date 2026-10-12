@@ -6,6 +6,7 @@ import {
   selectWorkspaceDiagram,
   selectedDiagram,
   setWorkspaceText,
+  spliceSelectedDiagramSource,
 } from '../src/document-model';
 
 const MULTI_DOCUMENT = `# System map
@@ -130,5 +131,63 @@ describe('WorkspaceDocument', () => {
     expect(createWorkspaceDocumentForDiagram(MULTI_DOCUMENT, 'diagram-2').selectedIndex).toBe(1);
     expect(createWorkspaceDocumentForDiagram(MULTI_DOCUMENT, 'diagram-999').selectedIndex).toBe(0);
     expect(createWorkspaceDocumentForDiagram(MULTI_DOCUMENT, 'future-id').selectedIndex).toBe(0);
+  });
+});
+
+// The deferred edit path splices ranges without re-extracting in between, so the
+// stored range must be advanced after every splice or the next keystroke writes
+// the previous source's leftovers back into the document.
+describe('spliceSelectedDiagramSource', () => {
+  const original = 'Intro line.\n```mermaid\nflowchart TD\n  A --> B\n```\nOutro line.';
+  const expectedFor = (source: string): string => original.replace('flowchart TD\n  A --> B', source);
+
+  it('keeps the tail intact across consecutive keystrokes of a growing source', () => {
+    let state = createWorkspaceDocument(original);
+    state = spliceSelectedDiagramSource(state, 'flowchart TD\n  A --> B\n  C --> D');
+    state = spliceSelectedDiagramSource(state, 'flowchart TD\n  A --> B\n  C --> D\n  E --> F');
+
+    expect(state.text).toBe(expectedFor('flowchart TD\n  A --> B\n  C --> D\n  E --> F'));
+    expect(state.text).not.toContain('  E --> F\n  C --> D');
+  });
+
+  it('keeps the tail intact when the source shrinks', () => {
+    let state = createWorkspaceDocument(original);
+    state = spliceSelectedDiagramSource(state, 'flowchart TD\n  A --> B\n  C --> D\n  E --> F');
+    state = spliceSelectedDiagramSource(state, 'flowchart TD\n  A --> B');
+
+    expect(state.text).toBe(original);
+  });
+
+  it('advances the stored range so the next splice still targets the diagram', () => {
+    let state = createWorkspaceDocument(original);
+    state = spliceSelectedDiagramSource(state, 'flowchart TD\n  A --> B\n  C --> D');
+
+    const diagram = selectedDiagram(state)!;
+    expect(state.text.slice(diagram.range.startOffset, diagram.range.endOffset)).toBe('flowchart TD\n  A --> B\n  C --> D');
+    expect(diagram.source).toBe('flowchart TD\n  A --> B\n  C --> D');
+  });
+
+  it('falls back to a full replace when the range has drifted from the source', () => {
+    const state = createWorkspaceDocument(original);
+    // Simulate an unrelated document edit that shifted the text under the range.
+    const drifted = { ...state, text: `extra prefix\n${state.text}` };
+
+    const next = spliceSelectedDiagramSource(drifted, 'flowchart TD\n  A --> B\n  C --> D');
+
+    expect(next.text).toContain('extra prefix\nIntro line.');
+    expect(selectedDiagram(next)?.source).toBe('flowchart TD\n  A --> B\n  C --> D');
+    expect(next.text).toContain('Outro line.');
+  });
+
+  it('keeps a quoted diagram quote-consistent across keystrokes', () => {
+    const quoted = '> Here is the flow:\n>\n> ```mermaid\n> flowchart TD\n>   A --> B\n> ```\n> done';
+    let state = createWorkspaceDocument(quoted);
+    expect(state.document.diagrams).toHaveLength(1);
+
+    state = spliceSelectedDiagramSource(state, 'flowchart TD\n  A --> B\n  C --> D');
+
+    expect(state.text).toBe(quoted.replace('> flowchart TD\n>   A --> B', '> flowchart TD\n>   A --> B\n>   C --> D'));
+    // The marker must survive on every line of the replacement.
+    expect(state.text.split('\n').filter(line => line.includes('C --> D'))[0]).toMatch(/^>/);
   });
 });

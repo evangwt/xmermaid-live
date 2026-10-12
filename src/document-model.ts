@@ -2,7 +2,7 @@ import type {
   DiagramBlock,
   DiagramDocument,
 } from '@evangwt/xmermaid/editor';
-import { extractDiagrams, replaceDiagramSource } from './diagram-extract';
+import { diagramRangeHoldsSource, extractDiagrams, replaceDiagramSource, spliceDiagramSource } from './diagram-extract';
 
 export interface WorkspaceDocument {
   text: string;
@@ -57,6 +57,40 @@ export function replaceSelectedDiagramSource(
     document: replaced.document,
     selectedIndex: normalizeSelection(replaced.document.diagrams.length, selected.index),
   };
+}
+
+// Cheap alternative to replaceSelectedDiagramSource for very large documents:
+// splices the text without re-extracting, and keeps the edited diagram's range
+// in sync so a following keystroke can splice again correctly. Line/column and
+// the diagram list are refreshed by the deferred re-extraction that follows.
+// Falls back to the full replace if the range no longer holds the diagram's
+// source (the text drifted under it), which is always correct, just slower.
+export function spliceSelectedDiagramSource(
+  state: WorkspaceDocument,
+  nextSource: string,
+): WorkspaceDocument {
+  const index = state.selectedIndex;
+  const selected = index === null ? null : state.document.diagrams[index] ?? null;
+  if (selected === null || index === null) return state;
+  if (!diagramRangeHoldsSource(state.text, selected.range, selected.source)) {
+    // The range drifted (the text changed under it without a re-extraction), so
+    // every stored range is suspect: re-extract first, then replace by id.
+    return replaceSelectedDiagramSource(setWorkspaceText(state, state.text), nextSource);
+  }
+
+  const nextText = spliceDiagramSource(state.text, selected, nextSource);
+  const previousLength = selected.range.endOffset - selected.range.startOffset;
+  const replacementLength = nextText.length - state.text.length + previousLength;
+  const diagrams = state.document.diagrams.slice();
+  diagrams[index] = {
+    ...selected,
+    source: nextSource,
+    range: {
+      ...selected.range,
+      endOffset: selected.range.startOffset + replacementLength,
+    },
+  };
+  return { text: nextText, document: { ...state.document, diagrams }, selectedIndex: index };
 }
 
 function normalizeSelection(diagramCount: number, preferredIndex: number): number | null {
