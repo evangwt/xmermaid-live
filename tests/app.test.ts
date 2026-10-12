@@ -173,6 +173,68 @@ describe('mountApp', () => {
     expect(document.querySelectorAll('[data-diagram-item]')).toHaveLength(2);
   });
 
+  it('defers re-extraction of a very large document until typing pauses', () => {
+    vi.useFakeTimers();
+    mounted = mountApp(root(), { initialText: 'plain notes', renderer });
+    const input = document.querySelector<HTMLTextAreaElement>('[data-document-input]')!;
+    const large = `flowchart TD\n  A --> B\n${'prose '.repeat(20_000)}`;
+    expect(large.length).toBeGreaterThanOrEqual(100_000);
+
+    input.value = large;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // The keystroke must not pay for the full scan.
+    expect(document.querySelectorAll('[data-diagram-item]')).toHaveLength(0);
+
+    vi.advanceTimersByTime(200);
+
+    expect(document.querySelectorAll('[data-diagram-item]')).toHaveLength(1);
+  });
+
+  it('defers re-extraction when the current diagram is edited in a very large document', () => {
+    vi.useFakeTimers();
+    const large = `flowchart TD\n  A --> B\n${'prose '.repeat(20_000)}`;
+    expect(large.length).toBeGreaterThanOrEqual(100_000);
+    mounted = mountApp(root(), { initialText: large, renderer });
+    expect(document.querySelectorAll('[data-diagram-item]')).toHaveLength(1);
+
+    const diagramInput = document.querySelector<HTMLTextAreaElement>('[data-diagram-input]')!;
+    diagramInput.value = 'flowchart TD\n  A --> B\nsequenceDiagram\n  A->>B: hi';
+    diagramInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // The keystroke must not re-scan the document: the list is unchanged.
+    expect(document.querySelectorAll('[data-diagram-item]')).toHaveLength(1);
+
+    vi.advanceTimersByTime(200);
+
+    // After the pause the spliced text is re-extracted into two diagrams.
+    expect(document.querySelectorAll('[data-diagram-item]')).toHaveLength(2);
+  });
+
+  it('keeps the document intact when several diagram keystrokes land inside the debounce window', () => {
+    vi.useFakeTimers();
+    const large = `Intro.\n\`\`\`mermaid\nflowchart TD\n  A --> B\n\`\`\`\n${'prose '.repeat(20_000)}\nOutro.`;
+    expect(large.length).toBeGreaterThanOrEqual(100_000);
+    const persisted: string[] = [];
+    mounted = mountApp(root(), {
+      initialText: large,
+      renderer,
+      persistDocumentText: value => persisted.push(value),
+    });
+
+    const diagramInput = document.querySelector<HTMLTextAreaElement>('[data-diagram-input]')!;
+    // Two keystrokes before the debounce fires: the second must not reuse the
+    // first one's stale range and duplicate its tail back into the document.
+    diagramInput.value = 'flowchart TD\n  A --> B\n  C --> D';
+    diagramInput.dispatchEvent(new Event('input', { bubbles: true }));
+    diagramInput.value = 'flowchart TD\n  A --> B\n  C --> D\n  E --> F';
+    diagramInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const expected = large.replace('flowchart TD\n  A --> B', 'flowchart TD\n  A --> B\n  C --> D\n  E --> F');
+    expect(persisted.at(-1)).toBe(expected);
+    expect(persisted.at(-1)).toContain('Outro.');
+  });
+
   it('shows an unfenced diagram pasted between prose lines', () => {
     mounted = mountApp(root(), { initialText: 'plain notes', renderer });
     const input = document.querySelector<HTMLTextAreaElement>('[data-document-input]')!;
@@ -602,6 +664,22 @@ describe('mountApp', () => {
     expect(diagramTab.getAttribute('aria-selected')).toBe('true');
     expect(document.querySelector<HTMLElement>('[data-editor-surface="diagram"]')?.hidden).toBe(false);
     expect(diagramTab.getAttribute('aria-controls')).toBe('diagram-editor-panel');
+  });
+
+  it('renders the mixed document preview from the third editor tab', async () => {
+    const mixed = '# Title\n\nIntro prose.\n\n```mermaid\nflowchart TD\n  A --> B\n```\n\nOutro prose.';
+    mounted = mountApp(root(), { initialText: mixed, renderer });
+    const previewTab = document.querySelector<HTMLButtonElement>('[data-editor-tab="preview"]')!;
+
+    previewTab.click();
+
+    expect(previewTab.getAttribute('aria-selected')).toBe('true');
+    expect(document.querySelector<HTMLElement>('[data-editor-surface="preview"]')?.hidden).toBe(false);
+    expect(document.querySelector('.document-preview .doc-prose')?.textContent).toContain('Intro prose.');
+    await vi.waitFor(() => {
+      expect(document.querySelectorAll('.document-preview .doc-diagram-svg')).toHaveLength(1);
+    });
+    expect(document.querySelectorAll('.document-preview .doc-diagram')).toHaveLength(1);
   });
 
   it('exposes keyboard-operable mobile panel controls', () => {

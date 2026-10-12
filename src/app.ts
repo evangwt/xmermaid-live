@@ -2,6 +2,7 @@ import { encodeShareState, exportDiagram, type ExportRequest } from '@evangwt/xm
 import { analyzeSupport, type ArrowStyle, type CurveStyle, type SourceRange, type ThemeColors } from '@evangwt/xmermaid';
 import type { PreviewRenderer, PreviewSnapshot } from './preview-runtime';
 import { PreviewRuntime } from './preview-runtime';
+import { DocumentPreview } from './document-preview';
 import type { WorkspaceCacheState } from './workspace-cache';
 import { createRenderSource } from './render-source';
 import {
@@ -10,6 +11,7 @@ import {
   selectWorkspaceDiagram,
   selectedDiagram,
   setWorkspaceText,
+  spliceSelectedDiagramSource,
 } from './document-model';
 import {
   DEFAULT_LAYOUT_PREFERENCES,
@@ -135,6 +137,7 @@ const SHELL = `
         <div class="editor-tabs" role="tablist" aria-label="编辑内容">
           <button type="button" role="tab" id="document-editor-tab" aria-controls="document-editor-panel" data-editor-tab="document">完整文本</button>
           <button type="button" role="tab" id="diagram-editor-tab" aria-controls="diagram-editor-panel" data-editor-tab="diagram">当前图表</button>
+          <button type="button" role="tab" id="preview-editor-tab" aria-controls="preview-editor-panel" data-editor-tab="preview">文档预览</button>
         </div>
         <div class="editor-surface" id="document-editor-panel" role="tabpanel" aria-labelledby="document-editor-tab" data-editor-surface="document">
           <span class="sr-only">完整文本</span>
@@ -145,6 +148,10 @@ const SHELL = `
           <span class="sr-only">当前图表</span>
           <textarea class="editor-proxy" data-diagram-input aria-hidden="true" tabindex="-1" spellcheck="false"></textarea>
           <div class="code-editor-host" data-diagram-editor></div>
+        </div>
+        <div class="editor-surface editor-surface-preview" id="preview-editor-panel" role="tabpanel" aria-labelledby="preview-editor-tab" data-editor-surface="preview" hidden>
+          <span class="sr-only">文档预览</span>
+          <div class="document-preview" data-document-preview aria-label="文档预览"></div>
         </div>
       </section>
       <div class="workspace-divider" data-workspace-divider="editor" role="separator" aria-orientation="vertical" aria-label="调整编辑器与预览宽度" tabindex="0"></div>
@@ -164,6 +171,13 @@ const SHELL = `
 
 const MAX_SHARE_HASH_LENGTH = 50_000;
 const COMPACT_LAYOUT_QUERY = '(max-width: 1024px)';
+
+// A full document scan costs hundreds of milliseconds on large inputs (measured
+// ≈0.5s per megabyte), so past this size document edits are re-extracted once
+// typing pauses rather than on every keystroke. The editor stays immediate and
+// the diagram list, preview, and persistence catch up a moment later.
+const DEFERRED_EXTRACTION_THRESHOLD = 100_000;
+const DEFERRED_EXTRACTION_DELAY_MS = 180;
 
 export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   const originalDocumentLanguage = document.documentElement.getAttribute('lang');
@@ -218,7 +232,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   const exporter = options.exporter ?? exportDiagram;
   const saveBlob = options.saveBlob ?? downloadBlob;
   let state = createWorkspaceDocument(options.initialText, options.initialSelectedIndex ?? 0);
-  let activeEditor: 'document' | 'diagram' = 'document';
+  let activeEditor: 'document' | 'diagram' | 'preview' = 'document';
   let snapshot: PreviewSnapshot | null = null;
   let renderedListSignature: string | null = null;
   let listRenderFrame: number | null = null;
@@ -228,6 +242,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   const viewportCache = new Map<string, CanvasViewport>(Object.entries(options.initialViewports ?? {}));
   const animationFrames = new Set<number>();
   let statusClearTimer: number | null = null;
+  let extractionTimer: number | null = null;
   let activeViewport: CanvasViewport = { mode: 'fit', scale: 1, offsetX: 0, offsetY: 0 };
   let resizeObserver: ResizeObserver | null = null;
   let panningPointerId: number | null = null;
@@ -252,13 +267,18 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     }, 3600);
   };
 
+  const renderer = options.renderer ?? createRenderSource();
   const runtime = new PreviewRuntime(
-    options.renderer ?? createRenderSource(),
+    renderer,
     next => {
       snapshot = next;
       renderPreview();
     },
     options.renderDelayMs,
+  );
+  const documentPreview = new DocumentPreview(
+    required<HTMLElement>(root, '[data-document-preview]'),
+    { render: renderer, translate: t },
   );
   const documentEditor = createSourceEditor(documentEditorHost, state.text, 'markdown', 'editor.document', updateDocumentText);
   const diagramEditor = createSourceEditor(diagramEditorHost, selectedDiagram(state)?.source ?? '', 'mermaid', 'editor.diagram', updateDiagramSource);
@@ -535,6 +555,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     renderList();
     renderEditors();
     renderPreviewNavigation();
+    if (activeEditor === 'preview') renderDocumentPreview();
     runtime.request(current?.source ?? null, effectiveTheme);
     persistWorkspace();
   }
@@ -614,17 +635,59 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
   }
 
   function activateEditorTab(tab: HTMLButtonElement): void {
-    activeEditor = tab.dataset.editorTab === 'diagram' ? 'diagram' : 'document';
+    const value = tab.dataset.editorTab;
+    activeEditor = value === 'diagram' ? 'diagram' : value === 'preview' ? 'preview' : 'document';
     renderEditors();
+    if (activeEditor === 'preview') renderDocumentPreview();
+  }
+
+  // The mixed reading view only builds while it is the active tab, so a hidden
+  // surface never pays for rendering a long document's diagrams.
+  function renderDocumentPreview(): void {
+    documentPreview.update(state.text, state.document.diagrams, effectiveTheme);
   }
 
   function updateDocumentText(value: string): void {
+    if (value.length >= DEFERRED_EXTRACTION_THRESHOLD) {
+      state = { ...state, text: value };
+      options.persistDocumentText?.(state.text);
+      scheduleDeferredExtraction();
+      return;
+    }
+    cancelDeferredExtraction();
     state = setWorkspaceText(state, value);
     options.persistDocumentText?.(state.text);
     renderDocument();
   }
 
+  function scheduleDeferredExtraction(): void {
+    if (extractionTimer !== null) window.clearTimeout(extractionTimer);
+    extractionTimer = window.setTimeout(() => {
+      extractionTimer = null;
+      state = setWorkspaceText(state, state.text);
+      renderDocument();
+    }, DEFERRED_EXTRACTION_DELAY_MS);
+  }
+
+  function cancelDeferredExtraction(): void {
+    if (extractionTimer === null) return;
+    window.clearTimeout(extractionTimer);
+    extractionTimer = null;
+  }
+
   function updateDiagramSource(value: string): void {
+    const selected = selectedDiagram(state);
+    // Editing one diagram in a very large document would otherwise re-scan the
+    // whole text on every keystroke: splice the text now so the document stays
+    // current, preview the typed source immediately, and defer the re-extraction
+    // (ranges, list, diagnostics) until typing pauses.
+    if (selected && state.text.length >= DEFERRED_EXTRACTION_THRESHOLD) {
+      state = spliceSelectedDiagramSource(state, value);
+      options.persistDocumentText?.(state.text);
+      runtime.request(value, effectiveTheme);
+      scheduleDeferredExtraction();
+      return;
+    }
     state = replaceSelectedDiagramSource(state, value);
     options.persistDocumentText?.(state.text);
     renderDocument();
@@ -790,6 +853,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     destroy() {
       resizeObserver?.disconnect();
       if (statusClearTimer !== null) window.clearTimeout(statusClearTimer);
+      cancelDeferredExtraction();
       window.removeEventListener('resize', handleWindowResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('keydown', closeDesktopStyleInspectorOnEscape);
@@ -801,6 +865,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
       restoreDocumentAttribute('dir', originalDocumentDirection);
       documentEditor.destroy();
       diagramEditor.destroy();
+      documentPreview.dispose();
       runtime.dispose();
       root.replaceChildren();
     },
@@ -837,8 +902,10 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     setText('[data-panel="list"] .panel-heading h2', 'panel.diagrams');
     setText('[data-editor-tab="document"]', 'editor.document');
     setText('[data-editor-tab="diagram"]', 'editor.diagram');
+    setText('[data-editor-tab="preview"]', 'editor.preview');
     setText('[data-editor-surface="document"] .sr-only', 'editor.document');
     setText('[data-editor-surface="diagram"] .sr-only', 'editor.diagram');
+    setText('[data-editor-surface="preview"] .sr-only', 'editor.preview');
     setText('[data-panel="preview"] > .panel-heading h2', 'panel.preview');
     setText('#style-title', 'style.title');
     setText('.style-close-compact', 'style.done');
@@ -940,12 +1007,14 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     locale = next;
     translator = createTranslator(locale);
     renderedListSignature = null;
+    documentPreview.invalidate();
     renderStaticCopy();
     renderThemeControls();
     renderList();
     renderPreview();
     renderMobileNavigation();
     updatePreviewPresentationControl();
+    if (activeEditor === 'preview') renderDocumentPreview();
     options.persistLocale?.(locale);
   }
 
@@ -957,6 +1026,7 @@ export function mountApp(root: HTMLElement, options: AppOptions): MountedApp {
     renderThemeControls();
     options.persistThemePreferences?.(cloneThemePreferences(preferences));
     runtime.request(selectedDiagram(state)?.source ?? null, effectiveTheme);
+    if (activeEditor === 'preview') renderDocumentPreview();
     persistWorkspace();
   }
 
