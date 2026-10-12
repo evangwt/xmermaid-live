@@ -226,6 +226,95 @@ describe('extractDiagrams', () => {
     });
   });
 
+  it('splits a declared fence that holds two diagrams', () => {
+    const text = [
+      'Intro prose.',
+      '',
+      '```mermaid',
+      'flowchart TD',
+      '  A --> B',
+      'sequenceDiagram',
+      '  Alice->>Bob: hi',
+      '```',
+      '',
+      'Outro prose.',
+    ].join('\n');
+    const document = extractDiagrams(text);
+
+    expect(document.diagrams).toHaveLength(2);
+    expect(document.diagrams[0]).toMatchObject({
+      origin: 'markdown-fence',
+      source: 'flowchart TD\n  A --> B',
+    });
+    expect(document.diagrams[1]).toMatchObject({
+      origin: 'markdown-fence',
+      source: 'sequenceDiagram\n  Alice->>Bob: hi',
+    });
+    // Ranges point at each diagram's own lines, not the whole fence.
+    expect(document.diagrams[0]!.range).toMatchObject({ startLine: 4, endLine: 5 });
+    expect(document.diagrams[1]!.range).toMatchObject({ startLine: 6, endLine: 7 });
+  });
+
+  it('splits a declared fence that holds three diagrams', () => {
+    const text = [
+      '```mermaid',
+      'flowchart TD',
+      '  A --> B',
+      'classDiagram',
+      '  class Animal',
+      'pie',
+      '  "Cats" : 40',
+      '```',
+    ].join('\n');
+    const document = extractDiagrams(text);
+
+    expect(document.diagrams.map(diagram => diagram.source)).toEqual([
+      'flowchart TD\n  A --> B',
+      'classDiagram\n  class Animal',
+      'pie\n  "Cats" : 40',
+    ]);
+  });
+
+  it('splits an xmermaid fence holding two diagrams', () => {
+    const document = extractDiagrams('```xmermaid\nflowchart TD\n  A --> B\nsequenceDiagram\n  A->>B: hi\n```');
+
+    expect(document.diagrams).toHaveLength(2);
+    expect(document.diagrams.every(diagram => diagram.language === 'xmermaid')).toBe(true);
+  });
+
+  it('does not split on a node line that merely starts with a diagram keyword', () => {
+    const document = extractDiagrams('```mermaid\nflowchart TD\n  A --> B\nsequenceDiagram --> B\n```');
+
+    expect(document.diagrams).toHaveLength(1);
+    expect(document.diagrams[0]!.source).toBe('flowchart TD\n  A --> B\nsequenceDiagram --> B');
+  });
+
+  it('leaves a fence whole when a trailing keyword line could be a node', () => {
+    // A lone zero-indent keyword is more likely a node id than a one-line
+    // diagram, so splitting is abandoned and the fence stays one diagram.
+    const document = extractDiagrams('```mermaid\nflowchart TD\n  A --> B\npie\n```');
+
+    expect(document.diagrams).toHaveLength(1);
+    expect(document.diagrams[0]!.source).toBe('flowchart TD\n  A --> B\npie');
+  });
+
+  it('keeps a leading comment attached to the first diagram when splitting', () => {
+    const document = extractDiagrams(
+      '```mermaid\n%% prepare\nflowchart TD\n  A --> B\nsequenceDiagram\n  A->>B: hi\n```',
+    );
+
+    expect(document.diagrams).toHaveLength(2);
+    expect(document.diagrams[0]!.source).toBe('%% prepare\nflowchart TD\n  A --> B');
+  });
+
+  it('does not split an indented second header', () => {
+    // Inside a fence, diagram bodies are normally indented; only a column-zero
+    // header is treated as a boundary (documented limit).
+    const document = extractDiagrams('```mermaid\nflowchart TD\n  A --> B\n  sequenceDiagram\n```');
+
+    expect(document.diagrams).toHaveLength(1);
+  });
+
   it('extracts a fence from CRLF text', () => {
     const document = extractDiagrams('```mermaid\r\nflowchart TD\r\n  A --> B\r\n```\r\n');
 
@@ -326,6 +415,112 @@ describe('extractDiagrams', () => {
     expect(document.diagrams).toHaveLength(1);
     expect(document.diagrams[0]!.origin).toBe('raw-mermaid-block');
     expect(document.diagrams[0]!.source).toBe(expected ?? text);
+  });
+});
+
+describe('blockquote-wrapped diagrams', () => {
+  it('recognizes a diagram inside a quoted fence', () => {
+    const text = '> ```mermaid\n> flowchart TD\n>   A --> B\n> ```';
+    const document = extractDiagrams(text);
+
+    expect(document.diagrams).toHaveLength(1);
+    expect(document.diagrams[0]).toMatchObject({
+      origin: 'markdown-fence',
+      language: 'mermaid',
+      diagramType: 'flowchart',
+      source: 'flowchart TD\n  A --> B',
+    });
+    expect(document.diagrams[0]!.range.startLine).toBe(2);
+  });
+
+  it('recognizes a quoted bare diagram and drops the markers from its source', () => {
+    const document = extractDiagrams('> flowchart TD\n>   A --> B');
+
+    expect(document.diagrams).toHaveLength(1);
+    expect(document.diagrams[0]).toMatchObject({
+      origin: 'raw-mermaid-block',
+      source: 'flowchart TD\n  A --> B',
+    });
+  });
+
+  it('recognizes a nested quote and a quoted blank line', () => {
+    expect(extractDiagrams('>> ```mermaid\n>> flowchart TD\n>>   A --> B\n>> ```').diagrams[0]!.source)
+      .toBe('flowchart TD\n  A --> B');
+    expect(extractDiagrams('> ```mermaid\n>\n> flowchart TD\n>   A --> B\n> ```').diagrams[0]!.source)
+      .toBe('flowchart TD\n  A --> B');
+  });
+
+  it('recognizes a quoted fence in CRLF text', () => {
+    const document = extractDiagrams('> ```mermaid\r\n> flowchart TD\r\n>   A --> B\r\n> ```');
+
+    expect(document.diagrams).toHaveLength(1);
+    expect(document.diagrams[0]!.source).toBe('flowchart TD\r\n  A --> B');
+  });
+
+  it('recognizes a quoted diagram inside a long document', () => {
+    const text = [
+      '这是一个很长的回答。',
+      '',
+      '> 参考下面的流程图：',
+      '> ```mermaid',
+      '> flowchart TD',
+      '>   A[开始] --> B[结束]',
+      '> ```',
+      '',
+      '以上就是全部内容。',
+    ].join('\n');
+    const document = extractDiagrams(text);
+
+    expect(document.diagrams).toHaveLength(1);
+    expect(document.diagrams[0]!.source).toBe('flowchart TD\n  A[开始] --> B[结束]');
+    expect(document.diagrams[0]!.range.startLine).toBe(5);
+  });
+
+  it('keeps unquoted ranges exact when the document also quotes a diagram', () => {
+    const text = 'flowchart TD\n  A --> B\n\n> sequenceDiagram\n>   X->>Y: hi';
+    const document = extractDiagrams(text);
+
+    expect(document.diagrams.map(diagram => diagram.source)).toEqual([
+      'flowchart TD\n  A --> B',
+      'sequenceDiagram\n  X->>Y: hi',
+    ]);
+    expect(sliceSource(text, document.diagrams[0]!)).toBe('flowchart TD\n  A --> B');
+  });
+
+  it('leaves quoted code and quoted prose alone', () => {
+    expect(extractDiagrams('> git commit -m "fix"\n> git push origin main').diagrams).toHaveLength(0);
+    expect(extractDiagrams('> ```js\n> flowchart TD\n> ```').diagrams).toHaveLength(0);
+  });
+
+  it('keeps a quoted diagram quoted when its source is rewritten', () => {
+    const text = '> ```mermaid\n> flowchart TD\n>   A --> B\n> ```';
+    const document = extractDiagrams(text);
+
+    const next = replaceDiagramSource(text, 'diagram-1', 'flowchart LR\n  X --> Y', document);
+
+    expect(next.text).toBe('> ```mermaid\n> flowchart LR\n>   X --> Y\n> ```');
+    expect(next.document.diagrams).toHaveLength(1);
+    expect(next.document.diagrams[0]!.source).toBe('flowchart LR\n  X --> Y');
+  });
+});
+
+describe('prose that opens with an edge operator', () => {
+  it.each([
+    { name: '-> arrow', text: 'flowchart TD\n  A --> B\n-> next section of the essay' },
+    { name: '--> arrow', text: 'flowchart TD\n  A --> B\n--> see the appendix' },
+    { name: '== rule', text: 'flowchart TD\n  A --> B\n== end of section' },
+  ])('ends a bare block instead of swallowing it: $name', ({ text }) => {
+    const document = extractDiagrams(text);
+
+    expect(document.diagrams).toHaveLength(1);
+    expect(document.diagrams[0]!.source).toBe('flowchart TD\n  A --> B');
+  });
+
+  it('keeps a state concurrent-region separator inside the block', () => {
+    const document = extractDiagrams('stateDiagram-v2\n[*] --> idle\n--\nidle --> running');
+
+    expect(document.diagrams).toHaveLength(1);
+    expect(document.diagrams[0]!.source).toBe('stateDiagram-v2\n[*] --> idle\n--\nidle --> running');
   });
 });
 

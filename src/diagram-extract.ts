@@ -46,6 +46,17 @@ const DIAGRAM_FENCE_LANGUAGES = new Set(['mermaid', 'xmermaid', 'mmd']);
 // Lines that never belong to a bare diagram: headings, lists, quotes, rules, nested fences.
 const HARD_STOP_PATTERN = /^(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|>|`{3,}|~{3,}|-{3,}\s*$)/;
 
+// A line that opens with an edge operator cannot be diagram content — every
+// edge needs a left-hand node — so prose such as "-> see the appendix" ends a
+// bare block instead of being swallowed. A bare "--" is deliberately excluded:
+// state diagrams use it as a concurrent-region separator.
+const EDGE_LEAD_PATTERN = /^(?:-->|->|==|-\.|:::)/;
+
+// A markdown blockquote marker ("`>`", "`>>`", "`> >`") plus the single optional
+// space markdown consumes. Quoted content is analysed de-quoted (see dequoteText)
+// so a diagram pasted inside a quote is recognized like any other.
+const QUOTE_MARKER_PATTERN = /^[ \t]*(?:>[ \t]?)+/;
+
 // Structural one-word lines: sequence block closers and cynefin section words.
 const ALONE_WORD_PATTERN = /^(?:end|and|or|complex|complicated|clear|chaotic|confusion)$/;
 
@@ -79,6 +90,28 @@ const CONTINUATION_PATTERNS: readonly RegExp[] = [
 ];
 
 export function extractDiagrams(text: string): DiagramDocument {
+  // Quoted content is analysed de-quoted so a diagram pasted inside a blockquote
+  // is recognized; ranges are then mapped back onto the original text.
+  const dequoted = dequoteText(text);
+  if (dequoted === null) return extractFromText(text);
+
+  const document = extractFromText(dequoted.text);
+  const lineStarts = lineStartOffsets(text);
+  return {
+    text,
+    diagrams: document.diagrams.map(diagram => ({
+      ...diagram,
+      range: remapRange(diagram.range, dequoted, lineStarts),
+    })),
+    diagnostics: document.diagnostics.map(diagnostic => (
+      diagnostic.range === null
+        ? diagnostic
+        : { ...diagnostic, range: remapRange(diagnostic.range, dequoted, lineStarts) }
+    )),
+  };
+}
+
+function extractFromText(text: string): DiagramDocument {
   const strict = extractStrictDiagrams(text);
   const lineStarts = lineStartOffsets(text);
   const lines = textLines(text);
@@ -86,7 +119,7 @@ export function extractDiagrams(text: string): DiagramDocument {
   // Upstream reports a whole-document raw block for content that merely opens
   // with a diagram header, which the line scan below partitions better: exact
   // fences stay authoritative and loose candidates only fill the gaps.
-  const candidates: DiagramCandidate[] = strict.diagrams
+  const strictCandidates: DiagramCandidate[] = strict.diagrams
     .filter(diagram => diagram.origin === 'markdown-fence')
     .map(diagram => ({
       startOffset: diagram.range.startOffset,
@@ -97,6 +130,13 @@ export function extractDiagrams(text: string): DiagramDocument {
     }));
 
   const loose = [...looseFenceCandidates(text, lines), ...rawBlockCandidates(text, lines)];
+
+  // A declared fence the loose layer split into several diagrams (one ```mermaid
+  // fence holding two) must replace upstream's single whole-fence block, or the
+  // merge would keep them glued into one diagram that cannot render.
+  const candidates = strictCandidates.filter(
+    accepted => loose.filter(candidate => overlaps(accepted, candidate)).length < 2,
+  );
   for (const candidate of loose) {
     if (!candidates.some(accepted => overlaps(accepted, candidate))) candidates.push(candidate);
   }
@@ -123,12 +163,65 @@ export function replaceDiagramSource(
     });
     return { text, document: nextDocument };
   }
-  const nextText = [
+  const nextText = spliceDiagramSource(text, diagram, nextSource);
+  return { text: nextText, document: extractDiagrams(nextText) };
+}
+
+// The text splice alone, without the (linear but full) re-extraction that
+// follows an edit. The app uses this to keep a keystroke cheap on long
+// documents and defer the scan until typing pauses.
+export function spliceDiagramSource(
+  text: string,
+  diagram: DiagramBlock,
+  nextSource: string,
+): string {
+  return [
     text.slice(0, diagram.range.startOffset),
-    nextSource,
+    quoteAwareReplacement(text, diagram.range.startOffset, nextSource),
     text.slice(diagram.range.endOffset),
   ].join('');
-  return { text: nextText, document: extractDiagrams(nextText) };
+}
+
+// True when the text under a diagram's range still holds that diagram's source,
+// blockquote markers aside. The deferred edit path splices ranges without
+// re-extracting in between, so it must confirm the range has not drifted before
+// trusting it — a stale range would write the previous source's leftovers back
+// into the document.
+export function diagramRangeHoldsSource(
+  text: string,
+  range: { startOffset: number; endOffset: number },
+  source: string,
+): boolean {
+  if (range.startOffset < 0 || range.endOffset > text.length || range.startOffset >= range.endOffset) {
+    return false;
+  }
+  return dequoteSegment(text.slice(range.startOffset, range.endOffset)) === source;
+}
+
+// Strips the blockquote markers that a quoted diagram carries on every line but
+// its first (the first line's marker sits before the range, see above).
+function dequoteSegment(slice: string): string {
+  return slice
+    .split('\n')
+    .map((line, index) => (index === 0 ? line : line.replace(QUOTE_MARKER_PATTERN, '')))
+    .join('\n');
+}
+
+// A diagram recognized inside a blockquote keeps its marker on edit: the first
+// line's marker sits before the range, so only the following lines are re-prefixed.
+function quoteAwareReplacement(text: string, startOffset: number, nextSource: string): string {
+  const lineStart = text.lastIndexOf('\n', startOffset - 1) + 1;
+  const prefix = text.slice(lineStart, startOffset);
+  const marker = QUOTE_MARKER_PATTERN.exec(prefix)?.[0];
+  if (!marker || marker !== prefix) return nextSource;
+  return nextSource
+    .split('\n')
+    .map((line, index) => {
+      if (index === 0) return line;
+      if (line === '') return marker.trimEnd();
+      return `${marker}${line}`;
+    })
+    .join('\n');
 }
 
 // Fence variants upstream misses: tildes, info strings, unclosed fences
@@ -144,7 +237,7 @@ function looseFenceCandidates(text: string, lines: TextLine[]): DiagramCandidate
     const contentStart = Math.min(lines[index]!.end + 1, text.length);
 
     let contentEnd = text.length;
-    let closerIndex = -1;
+    let closerIndex = lines.length;
     for (let probe = index + 1; probe < lines.length; probe += 1) {
       if (closesFence(lines[probe]!.trimmed, marker)) {
         contentEnd = lines[probe]!.start;
@@ -153,9 +246,10 @@ function looseFenceCandidates(text: string, lines: TextLine[]): DiagramCandidate
       }
     }
 
-    const candidate = fenceCandidate(text, contentStart, contentEnd, language);
-    if (candidate) candidates.push(candidate);
-    if (closerIndex < 0) break;
+    candidates.push(...fenceCandidates(
+      text, contentStart, contentEnd, language, lines, index + 1, closerIndex,
+    ));
+    if (closerIndex >= lines.length) break;
     index = closerIndex;
   }
   return candidates;
@@ -179,31 +273,127 @@ function rawBlockCandidates(text: string, lines: TextLine[]): DiagramCandidate[]
   return candidates;
 }
 
-function fenceCandidate(
+function fenceCandidates(
   text: string,
   contentStart: number,
   contentEnd: number,
   language: string,
-): DiagramCandidate | null {
+  lines: TextLine[],
+  bodyStart: number,
+  bodyEnd: number,
+): DiagramCandidate[] {
   const content = text.slice(contentStart, contentEnd);
-  const source = content.trim();
-  if (source === '') return null;
+  if (content.trim() === '') return [];
 
-  const declared = DIAGRAM_FENCE_LANGUAGES.has(language);
+  const fenceLanguage = language === 'xmermaid' ? 'xmermaid' : 'mermaid';
+  if (DIAGRAM_FENCE_LANGUAGES.has(language)) {
+    return declaredFenceCandidates(text, contentStart, contentEnd, fenceLanguage, lines, bodyStart, bodyEnd);
+  }
+
   // A neutral fence may quote several diagrams (a stray ``` line in prose looks
   // like an opener), so only single-diagram content is inferred.
-  const detected = !declared
-    && NEUTRAL_FENCE_LANGUAGES.has(language)
+  const source = content.trim();
+  const detected = NEUTRAL_FENCE_LANGUAGES.has(language)
     && detectDiagramType(source) !== 'unknown'
     && countDiagramHeaders(source) === 1;
-  if (!declared && !detected) return null;
+  if (!detected) return [];
 
-  return {
+  return [{
     startOffset: contentStart + (content.length - content.trimStart().length),
     endOffset: contentEnd - (content.length - content.trimEnd().length),
     source,
     origin: 'markdown-fence',
-    language: language === 'xmermaid' ? 'xmermaid' : 'mermaid',
+    language: fenceLanguage,
+  }];
+}
+
+// A ```mermaid fence is declared to hold a diagram, but one fence can carry
+// several: split at each clean header so every diagram renders on its own
+// instead of the whole fence being parsed as one diagram that cannot render.
+// Splitting is all-or-nothing: if any piece would be a lone line (more likely a
+// node id than a one-line diagram) the fence is left whole, as before.
+function declaredFenceCandidates(
+  text: string,
+  contentStart: number,
+  contentEnd: number,
+  language: 'mermaid' | 'xmermaid',
+  lines: TextLine[],
+  bodyStart: number,
+  bodyEnd: number,
+): DiagramCandidate[] {
+  const whole = (): DiagramCandidate[] => {
+    const candidate = trimmedCandidate(text, contentStart, contentEnd, language);
+    return candidate ? [candidate] : [];
+  };
+
+  const boundaries = [contentStart];
+  for (let index = bodyStart; index < bodyEnd; index += 1) {
+    const line = lines[index]!;
+    if (line.start > contentStart && isCleanDiagramHeader(line.raw)) boundaries.push(line.start);
+  }
+  if (boundaries.length === 1) return whole();
+
+  const segments = boundaries.map((start, index) => ({
+    start,
+    end: index + 1 < boundaries.length ? boundaries[index + 1]! : contentEnd,
+  }));
+  const splittable = segments.every(
+    (segment, index) => index === 0 || countNonBlankLines(text, segment.start, segment.end) >= 2,
+  );
+  if (!splittable) return whole();
+
+  const candidates: DiagramCandidate[] = [];
+  let pending: number | null = null;
+  for (const segment of segments) {
+    const trimmed = text.slice(segment.start, segment.end).trim();
+    // A chunk with no header of its own (a leading %% comment or front matter)
+    // folds into the diagram that follows.
+    if (trimmed === '' || detectDiagramType(trimmed) === 'unknown') {
+      pending ??= segment.start;
+      continue;
+    }
+    const candidate = trimmedCandidate(text, pending ?? segment.start, segment.end, language);
+    pending = null;
+    if (candidate) candidates.push(candidate);
+  }
+  return candidates.length > 0 ? candidates : whole();
+}
+
+// A line that opens a new diagram inside a declared fence: at column zero, a
+// recognized diagram header, and free of edge operators — so a flowchart node
+// named "sequenceDiagram" written as "sequenceDiagram --> B" stays a node.
+const FENCE_HEADER_OPERATOR_PATTERN = /-->|->|==|-\.|:::/;
+function isCleanDiagramHeader(raw: string): boolean {
+  if (/^[ \t]/.test(raw)) return false;
+  const trimmed = raw.trim();
+  if (trimmed === '' || trimmed.startsWith('%%')) return false;
+  if (FENCE_HEADER_OPERATOR_PATTERN.test(trimmed)) return false;
+  return detectDiagramType(trimmed) !== 'unknown';
+}
+
+function countNonBlankLines(text: string, start: number, end: number): number {
+  let count = 0;
+  for (const line of text.slice(start, end).split('\n')) {
+    if (line.trim() !== '') count += 1;
+  }
+  return count;
+}
+
+function trimmedCandidate(
+  text: string,
+  start: number,
+  end: number,
+  language: 'mermaid' | 'xmermaid',
+): DiagramCandidate | null {
+  const content = text.slice(start, end);
+  const source = content.trim();
+  if (source === '') return null;
+  return {
+    startOffset: start + (content.length - content.trimStart().length),
+    endOffset: end - (content.length - content.trimEnd().length),
+    source,
+    origin: 'markdown-fence',
+    language,
   };
 }
 
@@ -272,7 +462,7 @@ function isDiagramHeader(line: TextLine): boolean {
 }
 
 function isHardStop(line: TextLine): boolean {
-  return HARD_STOP_PATTERN.test(line.trimmed);
+  return HARD_STOP_PATTERN.test(line.trimmed) || EDGE_LEAD_PATTERN.test(line.trimmed);
 }
 
 function continuesDiagram(line: TextLine, headerIndent: number): boolean {
@@ -350,6 +540,87 @@ function sourcePosition(lineStarts: number[], offset: number): { line: number; c
   return {
     line: lineIndex + 1,
     column: offset - (lineStarts[lineIndex] ?? 0) + 1,
+  };
+}
+
+// De-quoted view of the text: `text` has blockquote markers stripped, and
+// `lines` records where each de-quoted line starts in the original so ranges can
+// be mapped back. Only built when some line actually carries a marker.
+interface DequoteResult {
+  text: string;
+  lines: Array<{ normStart: number; origStart: number }>;
+}
+
+interface MappableRange {
+  startOffset: number;
+  endOffset: number;
+  startLine: number;
+  startColumn: number;
+  endLine: number;
+  endColumn: number;
+}
+
+function dequoteText(text: string): DequoteResult | null {
+  if (!/^[ \t]*>/m.test(text)) return null;
+
+  const lines: DequoteResult['lines'] = [];
+  const parts: string[] = [];
+  let normLength = 0;
+  let lineStart = 0;
+  for (;;) {
+    let lineEnd = text.indexOf('\n', lineStart);
+    const hasNewline = lineEnd >= 0;
+    if (!hasNewline) lineEnd = text.length;
+    const raw = text.slice(lineStart, lineEnd);
+    const marker = QUOTE_MARKER_PATTERN.exec(raw)?.[0] ?? '';
+    const content = raw.slice(marker.length);
+    lines.push({ normStart: normLength, origStart: lineStart + marker.length });
+    parts.push(content);
+    normLength += content.length;
+    if (!hasNewline) break;
+    parts.push('\n');
+    normLength += 1;
+    lineStart = lineEnd + 1;
+  }
+  return { text: parts.join(''), lines };
+}
+
+// De-quoted offset -> original offset, by binary search over line starts.
+function mapOffset(dequoted: DequoteResult, offset: number): number {
+  const { text, lines } = dequoted;
+  if (lines.length === 0) return offset;
+  if (offset >= text.length) {
+    const last = lines[lines.length - 1]!;
+    return last.origStart + (text.length - last.normStart);
+  }
+  let low = 0;
+  let high = lines.length - 1;
+  while (low <= high) {
+    const middle = (low + high) >> 1;
+    if ((lines[middle]?.normStart ?? 0) <= offset) low = middle + 1;
+    else high = middle - 1;
+  }
+  const line = lines[Math.max(0, high)]!;
+  return line.origStart + (offset - line.normStart);
+}
+
+function remapRange<T extends MappableRange>(
+  range: T,
+  dequoted: DequoteResult,
+  lineStarts: number[],
+): T {
+  const startOffset = mapOffset(dequoted, range.startOffset);
+  const endOffset = mapOffset(dequoted, range.endOffset);
+  const start = sourcePosition(lineStarts, startOffset);
+  const end = sourcePosition(lineStarts, endOffset);
+  return {
+    ...range,
+    startOffset,
+    endOffset,
+    startLine: start.line,
+    startColumn: start.column,
+    endLine: end.line,
+    endColumn: end.column,
   };
 }
 
