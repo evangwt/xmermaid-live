@@ -495,6 +495,22 @@ test('keeps the compact desktop workspace visible and preserves editor focus thr
   await expect(page.locator('[data-document-editor] .cm-content')).toBeVisible();
   await expect(page.locator('[data-preview-zoom-value]')).toHaveText(/%$/);
 
+  // Canvas controls, exercised on the settled first diagram. The fitted reading
+  // is the anchor because "fit" is an explicit action: a reading captured while
+  // the preview is still switching diagrams can be one render behind, and two
+  // diagrams have different fitted scales.
+  await expect(page.locator('[data-preview] > svg.xmermaid-diagram')).toBeVisible();
+  await page.getByRole('button', { name: '适配预览' }).click();
+  const fittedZoom = await page.locator('[data-preview-zoom-value]').innerText();
+  // Zooming out from fit is a no-op by design — fit is the lower bound
+  // (see canvas-viewport.test.ts), so the reading cannot shrink past it.
+  await page.getByRole('button', { name: '缩小预览' }).click();
+  await expect(page.locator('[data-preview-zoom-value]')).toHaveText(fittedZoom);
+  await page.getByRole('button', { name: '放大预览' }).click();
+  await expect(page.locator('[data-preview-zoom-value]')).not.toHaveText(fittedZoom);
+  await page.getByRole('button', { name: '缩小预览' }).click();
+  await expect(page.locator('[data-preview-zoom-value]')).toHaveText(fittedZoom);
+
   const editor = page.getByRole('textbox', { name: '完整文本' });
   const previous = page.getByRole('button', { name: '上一张图表' });
   const next = page.getByRole('button', { name: '下一张图表' });
@@ -504,14 +520,6 @@ test('keeps the compact desktop workspace visible and preserves editor focus thr
   await next.click();
   await expect(page.locator('[data-preview-position]')).toHaveText(/2 \/ \d+/);
   await expect(editor).toBeFocused();
-
-  const zoomBefore = await page.locator('[data-preview-zoom-value]').innerText();
-  await page.getByRole('button', { name: '放大预览' }).click();
-  await expect(page.locator('[data-preview-zoom-value]')).not.toHaveText(zoomBefore);
-  // Manual zoom bottoms out at the fitted scale (see canvas-viewport.test.ts),
-  // so zooming back out from just above fit returns to the fitted reading.
-  await page.getByRole('button', { name: '缩小预览' }).click();
-  await expect(page.locator('[data-preview-zoom-value]')).toHaveText(zoomBefore);
 
   await page.addStyleTag({ content: ':root { --test-fullscreen: 1; }' });
   await page.evaluate(() => {
