@@ -33,6 +33,12 @@ export interface DocumentSegment {
   diagramIndex: number;
 }
 
+interface PreviewFigure {
+  element: HTMLElement;
+  index: number;
+  source: string;
+}
+
 const ESCAPES: Readonly<Record<string, string>> = {
   '&': '&amp;',
   '<': '&lt;',
@@ -50,7 +56,11 @@ export class DocumentPreview {
   private observer: IntersectionObserver | null = null;
   private signature: string | null = null;
   private theme: RenderTheme | null = null;
-  private figures: Array<{ element: HTMLElement; index: number; source: string }> = [];
+  private figures: PreviewFigure[] = [];
+  // Intersection callbacks arrive with an element, not an index; a map keeps
+  // that lookup O(1) instead of scanning every figure on each entry, which
+  // would be quadratic on a document with thousands of diagrams.
+  private readonly figureByElement = new Map<HTMLElement, PreviewFigure>();
   // The renderer is a single shared instance, so figures render one at a time.
   private chain: Promise<void> = Promise.resolve();
 
@@ -72,6 +82,7 @@ export class DocumentPreview {
     this.theme = theme;
     this.observer?.disconnect();
     this.figures = [];
+    this.figureByElement.clear();
     this.host.replaceChildren();
 
     const segments = buildDocumentSegments(text, diagrams);
@@ -104,6 +115,7 @@ export class DocumentPreview {
     this.observer = null;
     this.cache.clear();
     this.figures = [];
+    this.figureByElement.clear();
     this.signature = null;
   }
 
@@ -154,7 +166,9 @@ export class DocumentPreview {
     body.className = 'doc-diagram-body';
 
     figure.append(caption, body);
-    this.figures.push({ element: figure, index, source: diagram.source });
+    const entry: PreviewFigure = { element: figure, index, source: diagram.source };
+    this.figures.push(entry);
+    this.figureByElement.set(figure, entry);
     return figure;
   }
 
@@ -167,20 +181,20 @@ export class DocumentPreview {
     this.observer ??= new IntersectionObserver(entries => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
-        const figure = this.figures.find(candidate => candidate.element === entry.target);
+        const figure = this.figureByElement.get(entry.target as HTMLElement);
         if (figure) this.enqueue(figure);
       }
     }, { root: this.host, rootMargin: '200px 0px' });
     for (const figure of this.figures) this.observer.observe(figure.element);
   }
 
-  private enqueue(figure: { element: HTMLElement; index: number; source: string }): void {
+  private enqueue(figure: PreviewFigure): void {
     this.chain = this.chain
       .then(() => this.renderFigure(figure))
       .catch(() => undefined);
   }
 
-  private async renderFigure(figure: { element: HTMLElement; index: number; source: string }): Promise<void> {
+  private async renderFigure(figure: PreviewFigure): Promise<void> {
     const theme = this.theme;
     if (!theme) return;
     const body = figure.element.querySelector<HTMLElement>('.doc-diagram-body');
@@ -214,7 +228,7 @@ export class DocumentPreview {
   }
 
   private showSvg(
-    figure: { element: HTMLElement; index: number },
+    figure: PreviewFigure,
     body: HTMLElement,
     status: HTMLElement | null,
     svg: SVGSVGElement,
@@ -315,7 +329,7 @@ export function proseToHtml(text: string): string {
   };
 
   for (const line of lines) {
-    const fence = /^\s*(?:`{3,}|~{3,})\s*([^\s`]*)\s*$/.exec(line);
+    const fence = isFenceLine(line);
     if (code !== null) {
       if (fence) {
         out.push(`<pre class="doc-code"><code>${escapeHtml(code.join('\n'))}</code></pre>`);
@@ -383,17 +397,40 @@ export function proseToHtml(text: string): string {
   return out.join('');
 }
 
+// A fence line, in the sense of the CommonMark block-fence rule: three or more
+// backticks or tildes, optionally followed by an info string. The info string
+// may contain spaces — ```js {linenos} and ```bash title="build" are both
+// ordinary fences — so the whole remainder of the line is accepted. A backtick
+// fence's info string may not itself contain a backtick.
+function isFenceLine(line: string): boolean {
+  const match = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+  if (!match) return false;
+  return match[1]!.startsWith('~') || !match[2]!.includes('`');
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, character => ESCAPES[character]!);
 }
 
 // Operates on already-escaped text, so no raw '<' can survive from the document.
-// Emphasis follows markdown's flanking rule — the delimiters must hug their
-// content — so arithmetic such as "2 * 3 * 4" stays literal instead of turning
-// into emphasis.
+// Inline code is split out first and left alone, so its contents stay literal —
+// markdown does not interpret emphasis or links inside a code span. Everything
+// else goes through `emphasize`, which follows markdown's flanking rule (the
+// delimiters must hug their content) so arithmetic such as "2 * 3 * 4" stays
+// literal instead of turning into emphasis.
 function inlineHtml(escaped: string): string {
   return escaped
-    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+    .split(/(`[^`\n]+`)/g)
+    .map(part =>
+      part.length > 2 && part.startsWith('`') && part.endsWith('`')
+        ? `<code>${part.slice(1, -1)}</code>`
+        : emphasize(part),
+    )
+    .join('');
+}
+
+function emphasize(escaped: string): string {
+  return escaped
     .replace(/\*\*(\S(?:[^*\n]*\S)?)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*\w])\*(\S(?:[^*\n]*\S)?)\*/g, '$1<em>$2</em>')
     .replace(

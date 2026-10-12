@@ -129,6 +129,30 @@ describe('proseToHtml', () => {
     expect(proseToHtml('[mail](mailto:a@b.c)')).toContain('href="mailto:a@b.c"');
     expect(proseToHtml('[bad](javascript:alert(1))')).not.toContain('href=');
   });
+
+  it('keeps an inline code span literal instead of marking it up', () => {
+    const html = proseToHtml('Use `*a*` and `[x](https://y.z)` verbatim.');
+
+    expect(html).toContain('<code>*a*</code>');
+    expect(html).toContain('<code>[x](https://y.z)</code>');
+    expect(html).not.toContain('<em>');
+    expect(html).not.toContain('href=');
+  });
+
+  it('recognizes a fence whose info string contains spaces', () => {
+    const html = proseToHtml('```js {linenos}\nconst a = 1;\n```');
+
+    expect(html).toBe('<pre class="doc-code"><code>const a = 1;</code></pre>');
+    // The opener must not leak into prose, and no empty block may be left behind.
+    expect(html).not.toContain('linenos');
+    expect(html.match(/doc-code/g)).toHaveLength(1);
+  });
+
+  it('keeps a tilde fence with an info string out of prose', () => {
+    expect(proseToHtml('~~~bash title="build"\nnpm run build\n~~~')).toBe(
+      '<pre class="doc-code"><code>npm run build</code></pre>',
+    );
+  });
 });
 
 describe('DocumentPreview', () => {
