@@ -166,7 +166,7 @@ describe('GitHub Pages discovery resources', () => {
     // The READMEs delegate the full enumeration to the renderer and name the
     // fully-supported families in prose instead.
     const readmeClaims = [
-      readme.match(/[^\n]*are fully supported[^\n]*/)?.[0] ?? '',
+      readme.match(/[^\n]*fully supported[^\n]*/i)?.[0] ?? '',
       chineseReadme.match(/[^\n]*完全支持[^\n]*/)?.[0] ?? '',
     ].map(claim => claim.toLowerCase());
 
