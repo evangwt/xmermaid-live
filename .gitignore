@@ -11,6 +11,7 @@ coverage/
 # Local planning artifacts
 .superpowers/
 docs/superpowers/
+.goal/
 
 # Local package artifacts
 vendor/*.tgz
@@ -20,3 +21,4 @@ output/
 
 # Local tool state
 .omo/
+.workbuddy-ai/
